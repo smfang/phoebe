@@ -1,21 +1,19 @@
 """
 Dataset loader and sampler for the Indeed job postings eval dataset.
 
-Expected layout:
-    data/indeed/
-        job_postings.csv          # Full Kaggle dataset
-        synthetic_violations.csv  # Optional: red-team generated violations
+Data sources (in priority order):
+    1. data/indeed/job_postings.csv       — user-provided labeled dataset
+    2. data/indeed/synthetic_violations.csv — generated violations
+    3. src/eval/fixtures/seed_dataset.csv  — 30 hand-curated examples (ships with repo)
 
-The Kaggle dataset is >92% compliant, so synthetic augmentation with
-violation examples is important for balanced evaluation.
+The seed dataset provides a ready-to-use baseline so you can run the eval
+without downloading anything. For serious benchmarking, add your own
+labeled data to data/indeed/.
 
 CSV schema (minimum required columns):
     - job_text: str           (the job posting content — title + description)
     - ground_truth: str       (comma-separated Indeed policy IDs that are violated,
                                or "compliant" if clean)
-
-For the raw Kaggle dataset you'll need to add ground_truth labels. See
-EVAL_GUIDE.md for labeling instructions.
 """
 
 from __future__ import annotations
@@ -31,6 +29,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_DATA_DIR = Path("data/indeed")
 POSTINGS_FILE = "job_postings.csv"
 SYNTHETIC_FILE = "synthetic_violations.csv"
+SEED_DATASET = Path(__file__).parent / "fixtures" / "seed_dataset.csv"
 
 
 @dataclass
@@ -182,15 +181,21 @@ def load_csv(path: Path, source: str = "kaggle") -> list[EvalSample]:
 def load_dataset(
     data_dir: Path = DEFAULT_DATA_DIR,
     include_synthetic: bool = True,
+    include_seed: bool = True,
 ) -> EvalDataset:
     """
-    Load the full eval dataset from data/indeed/.
+    Load the eval dataset.
 
-    Combines the main Kaggle dataset with optional synthetic violations.
+    Priority:
+      1. User-provided data in data_dir (job_postings.csv)
+      2. Synthetic violations (synthetic_violations.csv)
+      3. Built-in seed dataset (30 hand-curated examples)
+
+    The seed dataset is always available — no downloads required.
     """
     samples: list[EvalSample] = []
 
-    # Main dataset
+    # User-provided dataset
     main_path = data_dir / POSTINGS_FILE
     samples.extend(load_csv(main_path, source="kaggle"))
 
@@ -198,6 +203,11 @@ def load_dataset(
     if include_synthetic:
         synthetic_path = data_dir / SYNTHETIC_FILE
         samples.extend(load_csv(synthetic_path, source="synthetic"))
+
+    # Fall back to seed dataset if nothing else loaded
+    if not samples and include_seed:
+        logger.info("No user data found — loading built-in seed dataset")
+        samples.extend(load_csv(SEED_DATASET, source="seed"))
 
     dataset = EvalDataset(samples=samples)
     logger.info(dataset.summary())

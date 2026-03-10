@@ -16,43 +16,46 @@ Phoebe trades per-classification cost for zero-retraining flexibility — it eva
 
 ## Quick Start
 
-### 1. Download the dataset
+### Zero-download quickstart (seed dataset)
+
+A 30-sample seed dataset ships with the repo — no downloads required:
 
 ```bash
-# Create the data directory
-mkdir -p data/indeed
-
-# Download from Kaggle (requires kaggle CLI + API key)
-kaggle datasets download -d arshkon/linkedin-job-postings -p data/indeed/ --unzip
-# OR for the Indeed-specific dataset:
-kaggle datasets download -d promptcloud/indeed-job-posting-dataset -p data/indeed/ --unzip
-
-# Rename to expected filename
-mv data/indeed/*.csv data/indeed/job_postings.csv
-```
-
-**Important:** The raw Kaggle dataset has no ground-truth violation labels. You need to add a `ground_truth` column. See [Labeling](#labeling-the-dataset) below.
-
-### 2. Generate synthetic violations
-
-The Kaggle dataset is >92% compliant. Without synthetic violations, you'll get meaningless recall numbers (near 0 because there are almost no violations to detect).
-
-```bash
-# Generate 200 synthetic violations per policy (2,000 total)
-python main.py generate-synthetic --n-per-policy 200
-
-# Or generate alongside eval
-python main.py eval --generate-synthetic 200
-```
-
-### 3. Run the eval
-
-```bash
-# Full eval (all 10 policies, all samples)
+# Run eval immediately against the built-in seed data
 python main.py eval --model-api-key sk-ant-...
 
-# Sample 100 examples for a quick test
-python main.py eval --sample 100 --model-api-key sk-ant-...
+# Or with synthetic augmentation (2,000 generated + 30 seed)
+python main.py eval --generate-synthetic 200 --model-api-key sk-ant-...
+```
+
+The seed dataset (`src/eval/fixtures/seed_dataset.csv`) contains 30 hand-curated examples: 12 compliant postings and 18 violations across all 10 policies. It's small but balanced — enough to validate the pipeline and get directional metrics.
+
+### Scaling up (optional)
+
+For serious benchmarking, add your own labeled data:
+
+```bash
+mkdir -p data/indeed
+
+# Option A: Curate your own labeled CSV
+# Add rows to data/indeed/job_postings.csv with job_text + ground_truth columns
+
+# Option B: Generate synthetic violations only (no real data needed)
+python main.py generate-synthetic --n-per-policy 200
+python main.py eval
+
+# Option C: Download from Kaggle (large — 1.3GB+, requires labeling)
+# kaggle datasets download -d promptcloud/indeed-job-posting-dataset -p data/indeed/ --unzip
+# mv data/indeed/*.csv data/indeed/job_postings.csv
+# NOTE: Raw Kaggle data has no ground_truth column — you must add labels.
+# See "Labeling the Dataset" below.
+```
+
+### Run the eval
+
+```bash
+# Eval with seed data (works out of the box)
+python main.py eval --model-api-key sk-ant-...
 
 # Eval specific policies only
 python main.py eval --policies discrimination,pii_harvesting,scam_postings
@@ -62,6 +65,9 @@ python main.py eval --output results/indeed_eval.json
 
 # Higher concurrency (faster, more API cost)
 python main.py eval --concurrency 10
+
+# Generate synthetic + eval in one shot
+python main.py eval --generate-synthetic 200 --model-api-key sk-ant-...
 ```
 
 ## Architecture
@@ -69,11 +75,13 @@ python main.py eval --concurrency 10
 ```
 src/eval/
 ├── __init__.py
-├── indeed_policies.py   # 10 Indeed policies → GA Guard category mapping
-├── dataset.py           # CSV loader, sampler, stratified sampling
-├── metrics.py           # ConfusionMatrix, EvalResults, F1/precision/recall
-├── runner.py            # Orchestrates classification runs
-└── synthetic.py         # Template-based synthetic violation generator
+├── fixtures/
+│   └── seed_dataset.csv   # 30 hand-curated examples (ships with repo)
+├── indeed_policies.py     # 10 Indeed policies → GA Guard category mapping
+├── dataset.py             # CSV loader, sampler, stratified sampling
+├── metrics.py             # ConfusionMatrix, EvalResults, F1/precision/recall
+├── runner.py              # Orchestrates classification runs
+└── synthetic.py           # Template-based synthetic violation generator
 ```
 
 ### Flow

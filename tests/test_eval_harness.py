@@ -279,8 +279,15 @@ class TestDataset:
         ])
         assert "1 samples" in ds.summary()
 
-    def test_load_dataset_empty_dir(self, tmp_path):
+    def test_load_dataset_empty_dir_falls_back_to_seed(self, tmp_path):
         ds = load_dataset(data_dir=tmp_path)
+        # Falls back to the built-in seed dataset (30 examples)
+        assert ds.total == 30
+        assert ds.violation_count > 0
+        assert ds.compliant_count > 0
+
+    def test_load_dataset_empty_dir_no_seed(self, tmp_path):
+        ds = load_dataset(data_dir=tmp_path, include_seed=False)
         assert ds.total == 0
 
 

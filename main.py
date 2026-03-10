@@ -571,9 +571,8 @@ def eval_cmd(
 
     if dataset.total == 0:
         logger.error(
-            "No data found in %s. Download the Kaggle dataset first "
-            "(see EVAL_GUIDE.md).",
-            data_path,
+            "No data found. The built-in seed dataset should have loaded — "
+            "check src/eval/fixtures/seed_dataset.csv exists.",
         )
         return
 
