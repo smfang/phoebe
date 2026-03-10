@@ -527,5 +527,132 @@ def redteam_cmd(
         print("\nRed team session ended.")
 
 
+@cli.command(name="eval")
+@click.option("--data-dir", type=click.Path(), default="data/indeed", help="Path to the Indeed eval dataset directory")
+@click.option("--sample", type=int, default=None, help="Number of samples to evaluate (None = all)")
+@click.option("--policies", type=str, default=None, help="Comma-separated Indeed policy IDs to evaluate (None = all 10)")
+@click.option("--concurrency", type=int, default=5, help="Max concurrent API calls")
+@click.option("--output", type=click.Path(), default=None, help="Write JSON results to this file")
+@click.option("--generate-synthetic", type=int, default=None, help="Generate N synthetic violations per policy before eval")
+@click.option("--model-api-key", default=None, help="Model API key for the safety classifier")
+@click.option("--seed", type=int, default=42, help="Random seed for sampling")
+def eval_cmd(
+    data_dir: str,
+    sample: int | None,
+    policies: str | None,
+    concurrency: int,
+    output: str | None,
+    generate_synthetic: int | None,
+    model_api_key: str | None,
+    seed: int,
+):
+    """Run the Indeed policy eval harness against Phoebe's safety classifier."""
+    from pathlib import Path
+
+    from src.eval.dataset import load_dataset
+    from src.eval.runner import run_eval
+
+    data_path = Path(data_dir)
+
+    # Optionally generate synthetic violations first
+    if generate_synthetic:
+        from src.eval.synthetic import generate_synthetic_violations
+
+        synthetic_path = data_path / "synthetic_violations.csv"
+        generate_synthetic_violations(
+            n_per_policy=generate_synthetic,
+            seed=seed,
+            output_path=synthetic_path,
+        )
+        logger.info("Generated synthetic violations → %s", synthetic_path)
+
+    # Load dataset
+    dataset = load_dataset(data_dir=data_path)
+
+    if dataset.total == 0:
+        logger.error(
+            "No data found in %s. Download the Kaggle dataset first "
+            "(see EVAL_GUIDE.md).",
+            data_path,
+        )
+        return
+
+    # Sample if requested
+    if sample:
+        dataset = dataset.sample(n=sample, seed=seed)
+        logger.info("Sampled %d examples", dataset.total)
+
+    # Parse policy filter
+    policy_list = None
+    if policies:
+        policy_list = [p.strip() for p in policies.split(",")]
+
+    # Build classifier
+    classifier = SafetyClassifier(
+        api_key=model_api_key or CONFIG.model_api_key,
+        model_name=CONFIG.safety_classifier_model,
+        endpoint=CONFIG.safety_classifier_endpoint,
+    )
+
+    print(f"\n{dataset.summary()}")
+    print(f"Policies: {policy_list or 'all 10'}")
+    print(f"Concurrency: {concurrency}")
+    print()
+
+    # Run eval
+    results = asyncio.run(
+        run_eval(
+            classifier=classifier,
+            dataset=dataset,
+            policies=policy_list,
+            concurrency=concurrency,
+        )
+    )
+
+    # Print results
+    print(results.summary())
+
+    # Write JSON output
+    if output:
+        out_path = Path(output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(results.to_json())
+        print(f"\nResults written to {out_path}")
+
+    # Print error analysis
+    fn = results.false_negatives()
+    fp = results.false_positives()
+    if fn:
+        print(f"\n--- False Negatives (missed {len(fn)} violations) ---")
+        for r in fn[:5]:
+            print(f"  [{r.policy_id}] sample {r.sample_id}: {r.explanation[:100]}")
+        if len(fn) > 5:
+            print(f"  ... and {len(fn) - 5} more")
+
+    if fp:
+        print(f"\n--- False Positives (over-flagged {len(fp)} compliant posts) ---")
+        for r in fp[:5]:
+            print(f"  [{r.policy_id}] sample {r.sample_id}: {r.explanation[:100]}")
+        if len(fp) > 5:
+            print(f"  ... and {len(fp) - 5} more")
+
+
+@cli.command(name="generate-synthetic")
+@click.option("--data-dir", type=click.Path(), default="data/indeed", help="Output directory")
+@click.option("--n-per-policy", type=int, default=200, help="Violations per policy")
+@click.option("--seed", type=int, default=42, help="Random seed")
+def generate_synthetic_cmd(data_dir: str, n_per_policy: int, seed: int):
+    """Generate synthetic Indeed policy violations for eval augmentation."""
+    from pathlib import Path
+
+    from src.eval.synthetic import generate_synthetic_violations
+
+    out_path = Path(data_dir) / "synthetic_violations.csv"
+    rows = generate_synthetic_violations(
+        n_per_policy=n_per_policy, seed=seed, output_path=out_path,
+    )
+    print(f"Generated {len(rows)} synthetic violations → {out_path}")
+
+
 if __name__ == "__main__":
     cli()
