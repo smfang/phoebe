@@ -6,10 +6,15 @@ Evaluates red team submissions with:
 - Persistent attack history
 - Real USDC payout triggering via x402
 - Payment logging for audit trail
+- Optional oracle publishing for on-chain result availability
+- Two-phase payout proofs for escrow-based settlement
 """
+
+from __future__ import annotations
 
 import hashlib
 import logging
+from typing import Any
 
 from src.arena.models import (
     AttackPrompt,
@@ -64,11 +69,15 @@ class Scorer:
         safety_classifier: SafetyClassifier,
         store: ArenaStore,
         config: ScoringConfig | None = None,
+        oracle: Any | None = None,
+        wallet: Any | None = None,
     ) -> None:
         self._x402 = x402_client
         self._classifier = safety_classifier
         self._store = store
         self._config = config or ScoringConfig()
+        self._oracle = oracle  # OraclePublisher instance (optional)
+        self._wallet = wallet  # Wallet/DevWallet for signing payout proofs
 
     async def evaluate(
         self,
@@ -142,7 +151,112 @@ class Scorer:
                     submission_id=submission.submission_id,
                 )
 
+        # publish to oracle + generate payout proof (if configured)
+        oracle_records = await self._publish_to_oracle(prompt_evals, submission)
+        payout_proof = self._generate_payout_proof(
+            submission, result, oracle_records,
+        )
+
+        if oracle_records:
+            result.oracle_records = [r.__dict__ for r in oracle_records]  # type: ignore[attr-defined]
+        if payout_proof:
+            result.payout_proof = payout_proof.to_dict()  # type: ignore[attr-defined]
+
         return result
+
+    # ------------------------------------------------------------------
+    # Oracle + payout proof integration
+    # ------------------------------------------------------------------
+
+    async def _publish_to_oracle(
+        self,
+        prompt_evals: list[PromptEvaluation],
+        submission: Submission,
+    ) -> list[Any]:
+        """Publish successful attack results to the on-chain oracle."""
+        if not self._oracle:
+            return []
+
+        from src.safety.oracle import CATEGORY_INDEX
+
+        records = []
+        for e in prompt_evals:
+            if not e.attack_success:
+                continue
+
+            prompt_hash = hashlib.sha256(
+                e.prompt.strip().lower().encode()
+            ).hexdigest()
+            category_idx = CATEGORY_INDEX.get(e.category, 0)
+
+            # Sign attestation with wallet if available
+            attestation = b""
+            if self._wallet:
+                from src.safety.payout_proof import generate_evaluation_receipt
+                receipt = generate_evaluation_receipt(
+                    wallet=self._wallet,
+                    submission_id=submission.submission_id,
+                    prompt_hash=prompt_hash,
+                    category=e.category,
+                    severity=e.severity,
+                    unsafe=True,
+                    score=e.novelty_score,
+                )
+                attestation = receipt["signature"].encode()
+
+            try:
+                record = await self._oracle.publish_result(
+                    prompt_hash=prompt_hash,
+                    category=category_idx,
+                    severity=e.severity,
+                    unsafe=True,
+                    attestation=attestation,
+                )
+                records.append(record)
+                logger.info(
+                    "Published to oracle: prompt=%s cat=%s sev=%d tx=%s",
+                    prompt_hash[:16], e.category, e.severity,
+                    record.tx_hash[:16] if record.tx_hash else "pending",
+                )
+            except Exception as exc:
+                logger.warning("Oracle publish failed (non-fatal): %s", exc)
+
+        return records
+
+    def _generate_payout_proof(
+        self,
+        submission: Submission,
+        result: EvaluationResult,
+        oracle_records: list[Any],
+    ) -> Any | None:
+        """Generate a signed payout proof for escrow-based settlement."""
+        if not self._wallet or result.payout_usdc <= 0:
+            return None
+
+        from src.safety.payout_proof import generate_payout_proof
+
+        evaluation_id = ""
+        if oracle_records:
+            evaluation_id = oracle_records[0].evaluation_id or ""
+
+        try:
+            proof = generate_payout_proof(
+                wallet=self._wallet,
+                bounty_id=result.bounty_id,
+                submission_id=submission.submission_id,
+                evaluation_id=evaluation_id,
+                recipient=submission.teamer_wallet,
+                amount_usdc=result.payout_usdc,
+                chain=self._wallet.chain if hasattr(self._wallet, "chain") else "base",
+            )
+            logger.info(
+                "Payout proof generated: %s USDC for submission %s",
+                result.payout_usdc, submission.submission_id,
+            )
+            return proof
+        except Exception as exc:
+            logger.warning("Payout proof generation failed (non-fatal): %s", exc)
+            return None
 
     async def _evaluate_single(
         self,

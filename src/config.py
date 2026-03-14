@@ -70,6 +70,26 @@ class Config(BaseSettings):
     safety_classifier_endpoint: str = "https://api.anthropic.com"
     """API endpoint for the safety classifier"""
 
+    # oracle config — on-chain evaluation result publishing
+    oracle_contract_address: str = ""
+    """PhoebeOracle contract address (empty = oracle disabled)"""
+    oracle_chain: str = "base"
+    """blockchain where the oracle contract is deployed"""
+    oracle_rpc_url: str = ""
+    """JSON-RPC URL for oracle contract interactions"""
+    oracle_relayer_url: str = ""
+    """HTTP relayer URL for oracle publishing (alternative to direct RPC)"""
+    oracle_publisher_address: str = ""
+    """address authorized to publish results to the oracle"""
+    oracle_private_key: str = ""
+    """private key for signing oracle transactions (if direct mode)"""
+
+    # escrow config — two-phase x402 payout with proof
+    escrow_contract_address: str = ""
+    """PhoebeEscrow contract address (empty = escrow disabled)"""
+    escrow_enabled: bool = False
+    """enable two-phase payout proofs (requires wallet + oracle)"""
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
