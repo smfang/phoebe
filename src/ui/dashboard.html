@@ -419,6 +419,143 @@
     font-size: 12px;
   }
 
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-top: 10px;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108, 123, 247, 0.05);
+  }
+
+  .drop-zone input[type="file"] { display: none; }
+
+  .drop-zone-icon {
+    font-size: 18px;
+    margin-bottom: 4px;
+    display: block;
+    opacity: 0.6;
+  }
+
+  .drop-zone-hint {
+    font-size: 10px;
+    color: var(--text2);
+    opacity: 0.7;
+    margin-top: 2px;
+  }
+
+  /* Batch results */
+  .batch-results {
+    margin-top: 12px;
+    display: none;
+  }
+
+  .batch-results.visible { display: block; }
+
+  .batch-summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .batch-summary .batch-stat {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .batch-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .batch-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .batch-table th {
+    background: var(--surface2);
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .batch-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .batch-table tr:hover td { background: var(--surface2); }
+
+  .batch-prompt-cell {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text2);
+  }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .mode-tab {
+    flex: 1;
+    padding: 6px 12px;
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    background: var(--bg);
+    color: var(--text2);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .mode-tab:not(:last-child) { border-right: 1px solid var(--border); }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active { background: var(--accent-dim); color: var(--accent); }
+
+  .mode-content { display: none; }
+  .mode-content.active { display: block; }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -446,25 +583,75 @@
       <span id="classify-status"></span>
     </div>
     <div class="panel-body">
-      <textarea class="prompt-input" id="prompt-input"
-        placeholder="Enter a prompt to check against GA Guard policy..."></textarea>
-      <div class="checker-controls">
-        <select class="category-select" id="category-select">
-          <option value="all">All Categories</option>
-          <option value="pii_ip">PII &amp; IP</option>
-          <option value="illicit_activities">Illicit Activities</option>
-          <option value="hate">Hate</option>
-          <option value="sexual_content">Sexual Content</option>
-          <option value="prompt_security">Prompt Security</option>
-          <option value="violence_self_harm">Violence &amp; Self-Harm</option>
-          <option value="misinformation">Misinformation</option>
-        </select>
-        <button class="btn btn-primary" id="classify-btn" onclick="classifyPrompt()">Classify</button>
-        <button class="btn btn-secondary" onclick="clearResult()">Clear</button>
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="switchCheckerMode('single')">Single Prompt</button>
+        <button class="mode-tab" onclick="switchCheckerMode('batch')">Batch Upload</button>
       </div>
-      <div class="result-card" id="result-card">
-        <div class="result-verdict" id="result-verdict"></div>
-        <dl class="result-meta" id="result-meta"></dl>
+
+      <!-- Single prompt mode -->
+      <div class="mode-content active" id="mode-single">
+        <textarea class="prompt-input" id="prompt-input"
+          placeholder="Enter a prompt to check against GA Guard policy..."></textarea>
+        <div class="drop-zone" id="prompt-drop-zone">
+          <span class="drop-zone-icon">&#8593;</span>
+          Drop a .txt file here or <strong>click to upload</strong>
+          <div class="drop-zone-hint">Loads file content into the prompt field above</div>
+          <input type="file" id="prompt-file-input" accept=".txt,.md,.text">
+        </div>
+        <div class="checker-controls">
+          <select class="category-select" id="category-select">
+            <option value="all">All Categories</option>
+            <option value="pii_ip">PII &amp; IP</option>
+            <option value="illicit_activities">Illicit Activities</option>
+            <option value="hate">Hate</option>
+            <option value="sexual_content">Sexual Content</option>
+            <option value="prompt_security">Prompt Security</option>
+            <option value="violence_self_harm">Violence &amp; Self-Harm</option>
+            <option value="misinformation">Misinformation</option>
+          </select>
+          <button class="btn btn-primary" id="classify-btn" onclick="classifyPrompt()">Classify</button>
+          <button class="btn btn-secondary" onclick="clearResult()">Clear</button>
+        </div>
+        <div class="result-card" id="result-card">
+          <div class="result-verdict" id="result-verdict"></div>
+          <dl class="result-meta" id="result-meta"></dl>
+        </div>
+      </div>
+
+      <!-- Batch upload mode -->
+      <div class="mode-content" id="mode-batch">
+        <div class="drop-zone" id="batch-drop-zone">
+          <span class="drop-zone-icon">&#8593;</span>
+          Drop a file with multiple prompts or <strong>click to upload</strong>
+          <div class="drop-zone-hint">.txt (one prompt per line) &middot; .csv (prompt column) &middot; .jsonl ({"prompt":"..."})</div>
+          <input type="file" id="batch-file-input" accept=".txt,.csv,.jsonl,.json,.text">
+        </div>
+        <div class="checker-controls">
+          <select class="category-select" id="batch-category-select">
+            <option value="all">All Categories</option>
+            <option value="pii_ip">PII &amp; IP</option>
+            <option value="illicit_activities">Illicit Activities</option>
+            <option value="hate">Hate</option>
+            <option value="sexual_content">Sexual Content</option>
+            <option value="prompt_security">Prompt Security</option>
+            <option value="violence_self_harm">Violence &amp; Self-Harm</option>
+            <option value="misinformation">Misinformation</option>
+          </select>
+          <button class="btn btn-primary" id="batch-classify-btn" onclick="batchClassify()" disabled>Classify All</button>
+          <button class="btn btn-secondary" onclick="clearBatch()">Clear</button>
+        </div>
+        <div id="batch-file-info" style="margin-top:8px; font-size:11px; color:var(--text2);"></div>
+        <div class="batch-results" id="batch-results">
+          <div class="batch-progress"><div class="batch-progress-bar" id="batch-progress-bar"></div></div>
+          <div class="batch-summary" id="batch-summary"></div>
+          <div style="max-height:200px; overflow-y:auto;">
+            <table class="batch-table">
+              <thead><tr><th>#</th><th>Prompt</th><th>Verdict</th><th>Category</th><th>Severity</th></tr></thead>
+              <tbody id="batch-tbody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:8px;" onclick="exportBatchCSV()">Export Results CSV</button>
+        </div>
       </div>
     </div>
   </div>
@@ -497,6 +684,9 @@
       <input class="time-input" id="time-from" type="datetime-local" onchange="loadBreaches()" title="From">
       <input class="time-input" id="time-to" type="datetime-local" onchange="loadBreaches()" title="To">
       <button class="btn btn-secondary" onclick="loadBreaches()">Refresh</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('breach-import-input').click()" title="Import breaches from CSV/JSON">Import</button>
+      <input type="file" id="breach-import-input" accept=".csv,.json,.jsonl" style="display:none" onchange="importBreaches(this)">
+      <button class="btn btn-secondary" onclick="exportBreachesCSV()" title="Export filtered breaches to CSV">Export</button>
       <span class="log-count" id="log-count"></span>
     </div>
     <div class="panel-body" style="padding:0;">
@@ -524,6 +714,8 @@
 const API = window.location.origin;
 let allBreaches = [];
 let activeCategory = null;
+let batchPrompts = [];
+let batchResults = [];
 
 const CATEGORY_NAMES = {
   pii_ip: 'PII & IP',
@@ -553,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCategoryGrid();
   loadBreaches();
   loadStats();
+  initDropZones();
 });
 
 function initTimeInputs() {
@@ -566,6 +759,219 @@ function toLocalISO(d) {
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off * 60000);
   return local.toISOString().slice(0, 16);
+}
+
+// --- Drop Zones ---
+function initDropZones() {
+  // Single prompt file upload
+  setupDropZone('prompt-drop-zone', 'prompt-file-input', handleSingleFile);
+  // Batch file upload
+  setupDropZone('batch-drop-zone', 'batch-file-input', handleBatchFile);
+}
+
+function setupDropZone(zoneId, inputId, handler) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => { if (e.target.files[0]) handler(e.target.files[0]); });
+
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]);
+  });
+}
+
+function handleSingleFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('prompt-input').value = e.target.result;
+  };
+  reader.readAsText(file);
+}
+
+function handleBatchFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    batchPrompts = parseBatchFile(text, file.name);
+    document.getElementById('batch-file-info').textContent =
+      `Loaded ${file.name} — ${batchPrompts.length} prompt${batchPrompts.length !== 1 ? 's' : ''} found`;
+    document.getElementById('batch-classify-btn').disabled = batchPrompts.length === 0;
+    // Reset previous results
+    batchResults = [];
+    document.getElementById('batch-results').classList.remove('visible');
+  };
+  reader.readAsText(file);
+}
+
+function parseBatchFile(text, filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+
+  if (ext === 'jsonl') {
+    return text.trim().split('\n').map(line => {
+      try { const obj = JSON.parse(line); return obj.prompt || obj.text || obj.content || ''; }
+      catch { return ''; }
+    }).filter(p => p.trim());
+  }
+
+  if (ext === 'json') {
+    try {
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) {
+        return data.map(item =>
+          typeof item === 'string' ? item : (item.prompt || item.text || item.content || '')
+        ).filter(p => p.trim());
+      }
+    } catch {}
+    return [];
+  }
+
+  if (ext === 'csv') {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+    const header = lines[0].toLowerCase();
+    // Find prompt column index
+    const cols = header.split(',').map(c => c.trim().replace(/"/g, ''));
+    let idx = cols.findIndex(c => c === 'prompt' || c === 'text' || c === 'content');
+    if (idx === -1) idx = 0; // fallback to first column
+    return lines.slice(1).map(line => {
+      const vals = parseCSVLine(line);
+      return (vals[idx] || '').trim();
+    }).filter(p => p);
+  }
+
+  // Default: treat as .txt, one prompt per line
+  return text.trim().split('\n').filter(line => line.trim());
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { result.push(current); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// --- Checker Mode Tabs ---
+function switchCheckerMode(mode) {
+  document.querySelectorAll('.checker .mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.checker .mode-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`mode-${mode}`).classList.add('active');
+  // Activate the clicked tab
+  const tabs = document.querySelectorAll('.checker .mode-tab');
+  if (mode === 'single') tabs[0].classList.add('active');
+  else tabs[1].classList.add('active');
+}
+
+// --- Batch Classify ---
+async function batchClassify() {
+  if (batchPrompts.length === 0) return;
+
+  const category = document.getElementById('batch-category-select').value;
+  const btn = document.getElementById('batch-classify-btn');
+  const resultsEl = document.getElementById('batch-results');
+  const progressBar = document.getElementById('batch-progress-bar');
+  const tbody = document.getElementById('batch-tbody');
+  const summary = document.getElementById('batch-summary');
+
+  btn.disabled = true;
+  resultsEl.classList.add('visible');
+  batchResults = [];
+  tbody.innerHTML = '';
+  progressBar.style.width = '0%';
+  summary.innerHTML = '<span class="batch-stat">Running...</span>';
+
+  let blocked = 0, allowed = 0, errors = 0;
+
+  for (let i = 0; i < batchPrompts.length; i++) {
+    const prompt = batchPrompts[i];
+    const pct = Math.round(((i + 1) / batchPrompts.length) * 100);
+    progressBar.style.width = pct + '%';
+
+    try {
+      const resp = await fetch(`${API}/api/tns/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, category: category === 'all' ? null : category }),
+      });
+      const data = await resp.json();
+      batchResults.push({ prompt, ...data });
+
+      if (data.error) { errors++; }
+      else if (data.unsafe) { blocked++; }
+      else { allowed++; }
+
+      const cat = CATEGORY_NAMES[data.policy_category] || data.policy_category || '--';
+      const sev = data.severity || 0;
+      tbody.innerHTML += `<tr>
+        <td>${i + 1}</td>
+        <td class="batch-prompt-cell" title="${escapeHtml(prompt)}">${escapeHtml(truncate(prompt, 80))}</td>
+        <td class="${data.unsafe ? 'status-block' : 'status-allow'}">${data.error ? 'ERR' : (data.unsafe ? 'BLOCK' : 'ALLOW')}</td>
+        <td><span class="category-badge">${escapeHtml(cat)}</span></td>
+        <td><span class="severity-badge sev-${sev}">${SEV_LABELS[sev] || sev}</span></td>
+      </tr>`;
+    } catch (e) {
+      errors++;
+      batchResults.push({ prompt, error: e.message });
+      tbody.innerHTML += `<tr>
+        <td>${i + 1}</td>
+        <td class="batch-prompt-cell">${escapeHtml(truncate(prompt, 80))}</td>
+        <td style="color:var(--orange);">ERR</td>
+        <td>--</td><td>--</td>
+      </tr>`;
+    }
+
+    summary.innerHTML = `
+      <span class="batch-stat">Total: ${i + 1}/${batchPrompts.length}</span>
+      <span class="batch-stat" style="color:var(--red);">Blocked: ${blocked}</span>
+      <span class="batch-stat" style="color:var(--green);">Allowed: ${allowed}</span>
+      ${errors ? `<span class="batch-stat" style="color:var(--orange);">Errors: ${errors}</span>` : ''}
+    `;
+  }
+
+  btn.disabled = false;
+}
+
+function clearBatch() {
+  batchPrompts = [];
+  batchResults = [];
+  document.getElementById('batch-file-info').textContent = '';
+  document.getElementById('batch-results').classList.remove('visible');
+  document.getElementById('batch-classify-btn').disabled = true;
+  document.getElementById('batch-file-input').value = '';
+}
+
+function exportBatchCSV() {
+  if (batchResults.length === 0) return;
+  const header = 'prompt,verdict,category,severity,matched_rule,explanation';
+  const rows = batchResults.map(r => {
+    const verdict = r.error ? 'ERROR' : (r.unsafe ? 'BLOCK' : 'ALLOW');
+    return [
+      csvEscape(r.prompt || ''),
+      verdict,
+      csvEscape(CATEGORY_NAMES[r.policy_category] || r.policy_category || ''),
+      r.severity || 0,
+      csvEscape(r.matched_block_rule || ''),
+      csvEscape(r.explanation || ''),
+    ].join(',');
+  });
+  downloadCSV([header, ...rows].join('\n'), 'batch-results.csv');
 }
 
 // --- Category Grid ---
@@ -684,6 +1090,105 @@ function filterLogs() {
   }).join('');
 }
 
+// --- Import Breaches ---
+function importBreaches(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const text = e.target.result;
+    let imported = [];
+
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'json') {
+      try { imported = JSON.parse(text); if (!Array.isArray(imported)) imported = imported.breaches || []; } catch {}
+    } else if (ext === 'jsonl') {
+      imported = text.trim().split('\n').map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+    } else if (ext === 'csv') {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) return;
+      const cols = lines[0].toLowerCase().split(',').map(c => c.trim().replace(/"/g, ''));
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        const row = {};
+        cols.forEach((col, idx) => { row[col] = vals[idx] || ''; });
+        imported.push({
+          prompt_text: row.prompt || row.prompt_text || row.text || '',
+          policy_category: row.category || row.policy_category || '',
+          severity: parseInt(row.severity) || 0,
+          unsafe: row.verdict === 'BLOCK' || row.unsafe === '1' || row.unsafe === 'true',
+          matched_block_rule: row.matched_rule || row.matched_block_rule || '',
+          explanation: row.explanation || '',
+          timestamp: row.timestamp ? parseFloat(row.timestamp) : Date.now() / 1000,
+        });
+      }
+    }
+
+    if (imported.length === 0) {
+      alert('No valid breach records found in file.');
+      return;
+    }
+
+    // Classify each imported prompt via the API
+    let count = 0;
+    for (const breach of imported) {
+      if (!breach.prompt_text) continue;
+      try {
+        await fetch(`${API}/api/tns/classify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: breach.prompt_text }),
+        });
+        count++;
+      } catch {}
+    }
+
+    alert(`Imported and classified ${count} prompt${count !== 1 ? 's' : ''}. Refreshing logs...`);
+    input.value = '';
+    loadBreaches();
+  };
+  reader.readAsText(file);
+}
+
+// --- Export Breaches ---
+function exportBreachesCSV() {
+  if (allBreaches.length === 0) return;
+
+  // Export currently filtered view
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const severity = document.getElementById('severity-filter').value;
+  let filtered = allBreaches;
+  if (activeCategory) filtered = filtered.filter(b => b.category === activeCategory || b.policy_category === activeCategory);
+  if (severity) filtered = filtered.filter(b => String(b.severity) === severity);
+  if (search) {
+    filtered = filtered.filter(b =>
+      (b.prompt_text || '').toLowerCase().includes(search) ||
+      (b.category || '').toLowerCase().includes(search) ||
+      (b.matched_block_rule || '').toLowerCase().includes(search) ||
+      (b.explanation || '').toLowerCase().includes(search)
+    );
+  }
+
+  const header = 'timestamp,category,severity,prompt,verdict,matched_rule,explanation';
+  const rows = filtered.map(b => {
+    const ts = b.timestamp ? new Date(b.timestamp * 1000).toISOString() : '';
+    const cat = b.policy_category || b.category || '';
+    const verdict = b.unsafe !== false ? 'BLOCK' : 'ALLOW';
+    return [
+      ts,
+      csvEscape(cat),
+      b.severity || 0,
+      csvEscape(b.prompt_text || b.prompt || ''),
+      verdict,
+      csvEscape(b.matched_block_rule || ''),
+      csvEscape(b.explanation || ''),
+    ].join(',');
+  });
+
+  downloadCSV([header, ...rows].join('\n'), 'breach-logs.csv');
+}
+
 // --- Classify Prompt ---
 async function classifyPrompt() {
   const input = document.getElementById('prompt-input').value.trim();
@@ -755,6 +1260,23 @@ function escapeHtml(s) {
 
 function truncate(s, n) {
   return s.length > n ? s.slice(0, n) + '...' : s;
+}
+
+function csvEscape(s) {
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function downloadCSV(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Keyboard shortcut: Ctrl/Cmd+Enter to classify
