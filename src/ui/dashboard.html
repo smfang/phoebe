@@ -78,10 +78,10 @@
   .main {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     gap: 16px;
     padding: 16px 24px;
-    height: calc(100vh - 57px);
+    min-height: calc(100vh - 57px);
   }
 
   /* Panels */
@@ -114,8 +114,16 @@
     overflow-y: auto;
   }
 
-  /* Prompt Checker (top-left) */
+  /* Prompt Checker (row 1, left) */
   .checker { grid-column: 1; grid-row: 1; }
+
+  /* Category Coverage (row 1, right) */
+
+  /* Attack Generator (row 2, left) */
+  .attacker { grid-column: 1; grid-row: 2; }
+
+  /* Log Analyzer (row 2, right) */
+  .analyzer { grid-column: 2; grid-row: 2; }
 
   .prompt-input {
     width: 100%;
@@ -260,7 +268,7 @@
   }
 
   /* Breach Logs (bottom, full width) */
-  .logs { grid-column: 1 / -1; grid-row: 2; }
+  .logs { grid-column: 1 / -1; grid-row: 3; }
 
   .logs-toolbar {
     display: flex;
@@ -556,6 +564,162 @@
   .mode-content { display: none; }
   .mode-content.active { display: block; }
 
+  /* Attack Generator */
+  .attack-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .attack-controls select, .attack-controls input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 6px 10px;
+    font-family: var(--font);
+    font-size: 12px;
+  }
+
+  .attack-controls select:focus, .attack-controls input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .attack-list {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .attack-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    margin-bottom: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .attack-item:hover { border-color: var(--accent); }
+  .attack-item.selected { border-color: var(--accent); background: var(--surface2); }
+
+  .attack-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .attack-item-prompt {
+    color: var(--text2);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .attack-result {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    font-size: 12px;
+    display: none;
+  }
+
+  .attack-result.visible { display: block; }
+
+  .attack-output {
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    font-size: 11px;
+    color: var(--text2);
+    margin: 6px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Log Analyzer */
+  .analyzer-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .analyzer-controls select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 6px 10px;
+    font-family: var(--font);
+    font-size: 12px;
+  }
+
+  .analysis-summary {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .analysis-summary .a-stat {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .analysis-results {
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .analysis-results.visible { display: block; }
+
+  .analysis-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+
+  .analysis-item:last-child { border-bottom: none; }
+
+  .analysis-item-prompt {
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .analysis-item-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .change-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--orange-dim);
+    color: var(--orange);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -664,6 +828,116 @@
     </div>
     <div class="panel-body">
       <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </div>
+
+  <!-- Attack Generator -->
+  <div class="panel attacker">
+    <div class="panel-header">
+      Attack Generator
+      <span id="attack-status"></span>
+    </div>
+    <div class="panel-body">
+      <div class="attack-controls">
+        <select id="attack-category">
+          <option value="">All Categories</option>
+          <option value="pii_ip">PII &amp; IP</option>
+          <option value="illicit_activities">Illicit Activities</option>
+          <option value="hate">Hate</option>
+          <option value="sexual_content">Sexual Content</option>
+          <option value="prompt_security">Prompt Security</option>
+          <option value="violence_self_harm">Violence &amp; Self-Harm</option>
+          <option value="misinformation">Misinformation</option>
+        </select>
+        <select id="attack-technique">
+          <option value="direct">Direct</option>
+          <option value="role_play">Role Play</option>
+          <option value="hypothetical">Hypothetical</option>
+          <option value="chain_of_thought">Chain of Thought</option>
+          <option value="refusal_suppression">Refusal Suppression</option>
+          <option value="encoding">Encoding</option>
+          <option value="context_overflow">Context Overflow</option>
+          <option value="multi_persona">Multi-Persona</option>
+        </select>
+        <button class="btn btn-primary" onclick="generateAttacks()">Generate</button>
+      </div>
+      <input style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:6px 10px; font-family:var(--font); font-size:12px; margin-bottom:8px;"
+        id="attack-custom-intent" type="text" placeholder="Custom intent (optional — overrides category intents)">
+      <div class="attack-controls" style="margin-bottom:6px;">
+        <select id="attack-bounty" style="flex:1;">
+          <option value="">No target (classify only)</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadBounties()">Refresh Targets</button>
+      </div>
+      <div class="attack-list" id="attack-list">
+        <div class="empty-state">Generate attacks to see them here</div>
+      </div>
+      <div class="attack-result" id="attack-result">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <strong>Execution Result</strong>
+          <span id="attack-result-verdict"></span>
+        </div>
+        <div id="attack-result-target" style="font-size:11px; color:var(--text2); margin-bottom:4px;"></div>
+        <div class="attack-output" id="attack-result-output"></div>
+        <dl class="result-meta" id="attack-result-meta" style="font-size:11px;"></dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Analyzer -->
+  <div class="panel analyzer">
+    <div class="panel-header">
+      Log Analyzer
+      <span id="analyzer-status"></span>
+    </div>
+    <div class="panel-body">
+      <div class="analyzer-controls">
+        <select id="analyzer-source">
+          <option value="logs">From Breach Logs</option>
+          <option value="upload">Upload Prompts</option>
+        </select>
+        <select id="analyzer-category">
+          <option value="">Classify All Categories</option>
+          <option value="pii_ip">PII &amp; IP</option>
+          <option value="illicit_activities">Illicit Activities</option>
+          <option value="hate">Hate</option>
+          <option value="sexual_content">Sexual Content</option>
+          <option value="prompt_security">Prompt Security</option>
+          <option value="violence_self_harm">Violence &amp; Self-Harm</option>
+          <option value="misinformation">Misinformation</option>
+        </select>
+        <button class="btn btn-primary" id="analyze-btn" onclick="analyzeLogs()">Analyze</button>
+        <button class="btn btn-secondary" onclick="clearAnalysis()">Clear</button>
+      </div>
+      <div id="analyzer-upload" style="display:none; margin-bottom:10px;">
+        <div class="drop-zone" id="analyzer-drop-zone">
+          <span class="drop-zone-icon">&#8593;</span>
+          Drop a file with prompts or <strong>click to upload</strong>
+          <div class="drop-zone-hint">.txt (one per line) &middot; .csv &middot; .jsonl</div>
+          <input type="file" id="analyzer-file-input" accept=".txt,.csv,.jsonl,.json">
+        </div>
+        <div id="analyzer-file-info" style="margin-top:6px; font-size:11px; color:var(--text2);"></div>
+      </div>
+      <div id="analyzer-log-options" style="margin-bottom:10px;">
+        <div style="display:flex; gap:8px; align-items:center; font-size:11px; color:var(--text2);">
+          <span>Pulls last 100 entries from breach logs</span>
+          <select id="analyzer-log-category" style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:4px 8px; font-family:var(--font); font-size:11px;">
+            <option value="">All categories</option>
+            <option value="pii_ip">PII &amp; IP</option>
+            <option value="illicit_activities">Illicit Activities</option>
+            <option value="hate">Hate</option>
+            <option value="sexual_content">Sexual Content</option>
+            <option value="prompt_security">Prompt Security</option>
+            <option value="violence_self_harm">Violence &amp; Self-Harm</option>
+            <option value="misinformation">Misinformation</option>
+          </select>
+        </div>
+      </div>
+      <div class="batch-progress" id="analyzer-progress" style="display:none;">
+        <div class="batch-progress-bar" id="analyzer-progress-bar"></div>
+      </div>
+      <div class="analysis-summary" id="analysis-summary"></div>
+      <div class="analysis-results" id="analysis-results"></div>
     </div>
   </div>
 
@@ -1283,6 +1557,290 @@ function downloadCSV(csvContent, filename) {
 document.getElementById('prompt-input').addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') classifyPrompt();
 });
+
+// --- Attack Generator ---
+let generatedAttacks = [];
+let selectedAttackIdx = -1;
+
+async function loadBounties() {
+  const sel = document.getElementById('attack-bounty');
+  const current = sel.value;
+  try {
+    const resp = await fetch(`${API}/api/tns/bounties`);
+    const data = await resp.json();
+    sel.innerHTML = '<option value="">No target (classify only)</option>';
+    for (const b of (data.bounties || [])) {
+      const opt = document.createElement('option');
+      opt.value = b.bounty_id;
+      opt.textContent = `${b.target_model_name || b.bounty_id} (${b.remaining_usdc.toFixed(1)} USDC)`;
+      sel.appendChild(opt);
+    }
+    if (current) sel.value = current;
+  } catch (e) {
+    console.warn('Bounty load failed:', e);
+  }
+}
+
+async function generateAttacks() {
+  const category = document.getElementById('attack-category').value;
+  const technique = document.getElementById('attack-technique').value;
+  const customIntent = document.getElementById('attack-custom-intent').value.trim();
+  const status = document.getElementById('attack-status');
+  const list = document.getElementById('attack-list');
+
+  status.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const body = { technique, count: 5 };
+    if (category) body.category = category;
+    if (customIntent) body.intent = customIntent;
+
+    const resp = await fetch(`${API}/api/tns/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    generatedAttacks = data.attacks || [];
+    selectedAttackIdx = -1;
+
+    if (generatedAttacks.length === 0) {
+      list.innerHTML = '<div class="empty-state">No attacks generated</div>';
+    } else {
+      list.innerHTML = generatedAttacks.map((a, i) => `
+        <div class="attack-item" onclick="selectAttack(${i})" id="attack-item-${i}">
+          <div class="attack-item-header">
+            <span><span class="category-badge">${escapeHtml(CATEGORY_NAMES[a.category] || a.category)}</span></span>
+            <button class="btn btn-primary" style="padding:4px 10px; font-size:10px;" onclick="event.stopPropagation(); executeAttack(${i})">Execute</button>
+          </div>
+          <div class="attack-item-prompt" title="${escapeHtml(a.prompt)}">${escapeHtml(truncate(a.prompt, 120))}</div>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state">Error: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    status.innerHTML = '';
+  }
+}
+
+function selectAttack(idx) {
+  selectedAttackIdx = idx;
+  document.querySelectorAll('.attack-item').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  // Copy prompt to prompt checker for manual inspection
+  document.getElementById('prompt-input').value = generatedAttacks[idx].prompt;
+}
+
+async function executeAttack(idx) {
+  const attack = generatedAttacks[idx];
+  const bountyId = document.getElementById('attack-bounty').value;
+  const resultEl = document.getElementById('attack-result');
+  const verdictEl = document.getElementById('attack-result-verdict');
+  const targetEl = document.getElementById('attack-result-target');
+  const outputEl = document.getElementById('attack-result-output');
+  const metaEl = document.getElementById('attack-result-meta');
+  const status = document.getElementById('attack-status');
+
+  status.innerHTML = '<span class="spinner"></span>';
+  resultEl.classList.add('visible');
+  verdictEl.innerHTML = '<span class="spinner"></span>';
+  outputEl.textContent = 'Executing...';
+  metaEl.innerHTML = '';
+  targetEl.textContent = '';
+
+  try {
+    const body = { prompt: attack.prompt };
+    if (attack.category) body.category = attack.category;
+    if (bountyId) body.bounty_id = bountyId;
+
+    const resp = await fetch(`${API}/api/tns/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    // Show verdict
+    const cls = data.classification || {};
+    if (cls.unsafe) {
+      verdictEl.innerHTML = '<span class="verdict-block">BLOCK</span>';
+    } else {
+      verdictEl.innerHTML = '<span class="verdict-allow">ALLOW</span>';
+    }
+
+    // Target info
+    if (data.target_model) {
+      targetEl.textContent = `Target: ${data.target_model}`;
+    }
+
+    // Target output or error
+    if (data.target_output) {
+      outputEl.textContent = data.target_output;
+    } else if (data.target_error) {
+      outputEl.textContent = `Error: ${data.target_error}`;
+    } else {
+      outputEl.textContent = '(no target — classified prompt only)';
+    }
+
+    // Classification meta
+    const cat = CATEGORY_NAMES[cls.policy_category] || cls.policy_category || '--';
+    const sev = cls.severity || 0;
+    metaEl.innerHTML = `
+      <dt>Category</dt><dd>${escapeHtml(cat)}</dd>
+      <dt>Severity</dt><dd><span class="severity-badge sev-${sev}">${SEV_LABELS[sev] || sev}</span></dd>
+      ${cls.matched_block_rule ? `<dt>Rule</dt><dd>${escapeHtml(cls.matched_block_rule)}</dd>` : ''}
+      <dt>Explanation</dt><dd>${escapeHtml(cls.explanation || '--')}</dd>
+    `;
+
+    // Update the attack item with result indicator
+    const item = document.getElementById(`attack-item-${idx}`);
+    if (item) {
+      const badge = cls.unsafe
+        ? '<span style="color:var(--red); font-weight:700; font-size:10px;">BLOCK</span>'
+        : '<span style="color:var(--green); font-weight:700; font-size:10px;">ALLOW</span>';
+      const header = item.querySelector('.attack-item-header');
+      if (header && !header.querySelector('.attack-verdict')) {
+        const span = document.createElement('span');
+        span.className = 'attack-verdict';
+        span.innerHTML = badge;
+        header.insertBefore(span, header.querySelector('button'));
+      }
+    }
+
+  } catch (e) {
+    verdictEl.innerHTML = `<span style="color:var(--orange);">Error</span>`;
+    outputEl.textContent = e.message;
+  } finally {
+    status.innerHTML = '';
+  }
+}
+
+// Load bounties on init
+loadBounties();
+
+// --- Log Analyzer ---
+let analyzerPrompts = [];
+
+document.getElementById('analyzer-source').addEventListener('change', (e) => {
+  const isUpload = e.target.value === 'upload';
+  document.getElementById('analyzer-upload').style.display = isUpload ? 'block' : 'none';
+  document.getElementById('analyzer-log-options').style.display = isUpload ? 'none' : 'block';
+});
+
+// Set up analyzer drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  setupDropZone('analyzer-drop-zone', 'analyzer-file-input', handleAnalyzerFile);
+});
+
+function handleAnalyzerFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    analyzerPrompts = parseBatchFile(text, file.name);
+    document.getElementById('analyzer-file-info').textContent =
+      `Loaded ${file.name} — ${analyzerPrompts.length} prompt${analyzerPrompts.length !== 1 ? 's' : ''}`;
+  };
+  reader.readAsText(file);
+}
+
+async function analyzeLogs() {
+  const source = document.getElementById('analyzer-source').value;
+  const reclassifyCategory = document.getElementById('analyzer-category').value;
+  const btn = document.getElementById('analyze-btn');
+  const status = document.getElementById('analyzer-status');
+  const progressWrap = document.getElementById('analyzer-progress');
+  const progressBar = document.getElementById('analyzer-progress-bar');
+  const summaryEl = document.getElementById('analysis-summary');
+  const resultsEl = document.getElementById('analysis-results');
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner"></span>';
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '10%';
+  summaryEl.innerHTML = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('visible');
+
+  const body = {};
+  if (reclassifyCategory) body.reclassify_category = reclassifyCategory;
+
+  if (source === 'upload') {
+    if (analyzerPrompts.length === 0) {
+      status.innerHTML = '';
+      btn.disabled = false;
+      progressWrap.style.display = 'none';
+      alert('Upload a file first.');
+      return;
+    }
+    body.prompts = analyzerPrompts;
+  } else {
+    // Pull from logs — let the backend handle it
+    const logCat = document.getElementById('analyzer-log-category').value;
+    if (logCat) body.category = logCat;
+  }
+
+  progressBar.style.width = '40%';
+
+  try {
+    const resp = await fetch(`${API}/api/tns/analyze-logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    progressBar.style.width = '100%';
+
+    if (data.error) {
+      summaryEl.innerHTML = `<span class="a-stat" style="color:var(--orange);">${escapeHtml(data.error)}</span>`;
+      return;
+    }
+
+    const s = data.summary || {};
+    summaryEl.innerHTML = `
+      <span class="a-stat">Total: ${s.total || 0}</span>
+      <span class="a-stat" style="color:var(--red);">Unsafe: ${s.unsafe || 0}</span>
+      <span class="a-stat" style="color:var(--green);">Safe: ${s.safe || 0}</span>
+      ${s.reclassification_changes > 0 ? `<span class="a-stat" style="color:var(--orange);">Changed: ${s.reclassification_changes}</span>` : ''}
+    `;
+
+    resultsEl.classList.add('visible');
+    resultsEl.innerHTML = (data.results || []).map(r => {
+      const cls = r.classification || {};
+      const cat = CATEGORY_NAMES[cls.policy_category] || cls.policy_category || '--';
+      const sev = cls.severity || 0;
+      const changed = r.category_changed || r.severity_changed;
+
+      return `<div class="analysis-item">
+        <div class="analysis-item-prompt" title="${escapeHtml(r.prompt || '')}">${escapeHtml(truncate(r.prompt || '', 100))}</div>
+        <div class="analysis-item-meta">
+          <span class="${cls.unsafe ? 'status-block' : 'status-allow'}">${cls.unsafe ? 'BLOCK' : 'ALLOW'}</span>
+          <span class="category-badge">${escapeHtml(cat)}</span>
+          <span class="severity-badge sev-${sev}">${SEV_LABELS[sev] || sev}</span>
+          ${r.original_category ? `<span style="color:var(--text2); font-size:10px;">was: ${escapeHtml(CATEGORY_NAMES[r.original_category] || r.original_category)} / sev ${r.original_severity || 0}</span>` : ''}
+          ${changed ? '<span class="change-badge">changed</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    summaryEl.innerHTML = `<span class="a-stat" style="color:var(--orange);">Error: ${escapeHtml(e.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+    status.innerHTML = '';
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 1000);
+  }
+}
+
+function clearAnalysis() {
+  analyzerPrompts = [];
+  document.getElementById('analyzer-file-info').textContent = '';
+  document.getElementById('analysis-summary').innerHTML = '';
+  document.getElementById('analysis-results').innerHTML = '';
+  document.getElementById('analysis-results').classList.remove('visible');
+  document.getElementById('analyzer-file-input').value = '';
+}
 </script>
 </body>
 </html>
