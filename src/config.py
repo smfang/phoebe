@@ -90,6 +90,16 @@ class Config(BaseSettings):
     escrow_enabled: bool = False
     """enable two-phase payout proofs (requires wallet + oracle)"""
 
+    # safety RL / DPO training config
+    dpo_base_model: str = ""
+    """HuggingFace model ID to fine-tune with DPO (empty = use default)"""
+    dpo_data_dir: str = "data/safety_rl"
+    """directory for the cached DPO preference dataset"""
+    dpo_output_dir: str = "models/safety_dpo"
+    """directory to save the fine-tuned DPO model"""
+    dpo_max_per_source: int = 10_000
+    """max rows to pull from each dataset source"""
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

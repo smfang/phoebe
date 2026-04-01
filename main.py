@@ -527,5 +527,80 @@ def redteam_cmd(
         print("\nRed team session ended.")
 
 
+@cli.command(name="pull-safety-data")
+@click.option("--sources", type=str, default=None, help="Comma-separated dataset keys: rjudge,pku_saferlhf,harmbench,beavertails")
+@click.option("--max-per-source", type=int, default=None, help="Max rows per source (default: 10000)")
+@click.option("--output-dir", type=str, default=None, help="Output directory for the dataset")
+@click.option("--split", type=str, default="train", help="HuggingFace split to load")
+def pull_safety_data_cmd(
+    sources: str | None,
+    max_per_source: int | None,
+    output_dir: str | None,
+    split: str,
+):
+    """Pull safety datasets and format as DPO preference pairs."""
+    from src.safety.safety_rl_pipeline import pull_and_format
+
+    src_list = sources.split(",") if sources else None
+    ds = pull_and_format(
+        sources=src_list,
+        max_per_source=max_per_source or CONFIG.dpo_max_per_source,
+        output_dir=output_dir or CONFIG.dpo_data_dir,
+        split=split,
+    )
+    print(f"\nDataset ready: train={len(ds['train'])}, test={len(ds['test'])}")
+
+
+@cli.command(name="train-dpo")
+@click.option("--model", "model_name", type=str, default=None, help="Base model (HuggingFace ID or local path)")
+@click.option("--data-dir", type=str, default=None, help="Path to DPO dataset on disk")
+@click.option("--output-dir", type=str, default=None, help="Where to save the trained model")
+@click.option("--sources", type=str, default=None, help="Comma-separated dataset keys (if pulling fresh)")
+@click.option("--max-per-source", type=int, default=None)
+@click.option("--learning-rate", type=float, default=5e-7)
+@click.option("--epochs", "num_train_epochs", type=int, default=1)
+@click.option("--batch-size", "per_device_train_batch_size", type=int, default=4)
+@click.option("--grad-accum", "gradient_accumulation_steps", type=int, default=4)
+@click.option("--beta", type=float, default=0.1, help="DPO beta (KL penalty)")
+@click.option("--max-length", type=int, default=1024)
+@click.option("--max-prompt-length", type=int, default=512)
+@click.option("--no-bf16", is_flag=True, default=False, help="Disable bf16 (use fp32)")
+def train_dpo_cmd(
+    model_name: str | None,
+    data_dir: str | None,
+    output_dir: str | None,
+    sources: str | None,
+    max_per_source: int | None,
+    learning_rate: float,
+    num_train_epochs: int,
+    per_device_train_batch_size: int,
+    gradient_accumulation_steps: int,
+    beta: float,
+    max_length: int,
+    max_prompt_length: int,
+    no_bf16: bool,
+):
+    """Fine-tune a model with DPO on safety preference pairs."""
+    from src.safety.dpo_trainer import run_dpo_training
+
+    src_list = sources.split(",") if sources else None
+    saved = run_dpo_training(
+        model_name=model_name,
+        data_dir=data_dir or CONFIG.dpo_data_dir,
+        output_dir=output_dir or CONFIG.dpo_output_dir,
+        sources=src_list,
+        max_per_source=max_per_source or CONFIG.dpo_max_per_source,
+        learning_rate=learning_rate,
+        num_train_epochs=num_train_epochs,
+        per_device_train_batch_size=per_device_train_batch_size,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        beta=beta,
+        max_length=max_length,
+        max_prompt_length=max_prompt_length,
+        bf16=not no_bf16,
+    )
+    print(f"\nTraining complete. Model saved to: {saved}")
+
+
 if __name__ == "__main__":
     cli()
