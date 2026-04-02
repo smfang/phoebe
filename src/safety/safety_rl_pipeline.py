@@ -1,21 +1,23 @@
 """
 Safety RL Training Data Pipeline.
 
-Pulls four safety-related datasets, normalises them into DPO preference pairs
+Pulls safety-related datasets, normalises them into DPO preference pairs
 (chosen = safe response, rejected = unsafe response), and writes the merged
 corpus to disk as a HuggingFace Dataset.
 
 Supported sources
 -----------------
-- **R-Judge**        (``Kwan-Ho/R-Judge``)   — safety judgement benchmark
-- **PKU-SafeRLHF**   (``PKU-Alignment/PKU-SafeRLHF``)
-- **HarmBench**      (``harmbench/HarmBench``)
-- **BeaverTails**    (``PKU-Alignment/BeaverTails``)
+- **R-Judge**                 (``Kwan-Ho/R-Judge``)
+- **PKU-SafeRLHF**           (``PKU-Alignment/PKU-SafeRLHF``)
+- **HarmBench**               (``harmbench/HarmBench``)
+- **BeaverTails**             (``PKU-Alignment/BeaverTails``)
+- **CrAI-SafeFuncCall**       (``SentientAGI/crypto-agent-safe-function-calling``)
 
 Each adapter converts its source schema into a common
 ``{"prompt", "chosen", "rejected"}`` format suitable for TRL's ``DPOTrainer``.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,7 @@ DATASET_SOURCES: dict[str, str] = {
     "pku_saferlhf": "PKU-Alignment/PKU-SafeRLHF",
     "harmbench": "harmbench/HarmBench",
     "beavertails": "PKU-Alignment/BeaverTails",
+    "crypto_safefunc": "SentientAGI/crypto-agent-safe-function-calling",
 }
 
 
@@ -141,12 +144,95 @@ def _adapt_beavertails(ds: Dataset) -> list[dict[str, str]]:
     return pairs
 
 
+def _adapt_crypto_safefunc(ds: Dataset) -> list[dict[str, str]]:
+    """
+    SentientAGI/crypto-agent-safe-function-calling — memory-injection attacks
+    against crypto/blockchain function-calling agents.
+
+    Each row has:
+    - ``memory``: agent memory (may contain injected malicious payload)
+    - ``thinking_trajectory``: safe reasoning chain for the query
+    - ``answers``: list of correct (safe) tool calls
+    - ``attack``: attack type (e.g. "memory injection") or empty for benign
+    - ``domain``: task domain (e.g. "crypto")
+
+    For adversarial rows (attack != ""), the model should follow the safe
+    ``thinking_trajectory`` + ``answers`` (chosen) rather than obeying the
+    injected instructions in memory (rejected).
+
+    For benign rows, the correct tool call with safe reasoning serves as a
+    positive example; we synthesise a naive response that blindly trusts
+    memory as rejected.
+    """
+    pairs: list[dict[str, str]] = []
+    for row in ds:
+        memory = row.get("memory", "")
+        thinking = row.get("thinking_trajectory", "")
+        answers_raw = row.get("answers", [])
+        attack = row.get("attack", "")
+        query = row.get("query") or row.get("prompt") or row.get("instruction") or ""
+
+        # Format the safe tool calls as a readable string
+        if isinstance(answers_raw, str):
+            try:
+                answers_raw = json.loads(answers_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if isinstance(answers_raw, list):
+            safe_calls = json.dumps(answers_raw, indent=2)
+        else:
+            safe_calls = str(answers_raw)
+
+        # Build the prompt: the query + memory context the agent sees
+        if query:
+            prompt = f"Query: {query}\n\nAgent Memory:\n{memory}" if memory else query
+        elif memory:
+            prompt = f"Agent Memory:\n{memory}"
+        else:
+            continue
+
+        # Build chosen: safe reasoning + correct tool calls
+        chosen_parts = []
+        if thinking:
+            chosen_parts.append(f"Reasoning: {thinking}")
+        chosen_parts.append(f"Tool calls: {safe_calls}")
+        chosen = "\n".join(chosen_parts)
+
+        if attack:
+            # Adversarial row — the rejected response obeys the injection
+            rejected = (
+                f"Based on the memory context, I'll execute the requested operation.\n"
+                f"Tool calls: {memory[:500]}"
+            )
+        else:
+            # Benign row — synthesise a naive rejection that skips reasoning
+            rejected = (
+                f"Executing without verification.\n"
+                f"Tool calls: {safe_calls}"
+            )
+            # Only include benign rows if we have thinking (otherwise the
+            # pair is too similar to be useful for DPO)
+            if not thinking:
+                continue
+
+        if chosen.strip() and rejected.strip() and prompt.strip():
+            pairs.append({
+                "prompt": prompt.strip(),
+                "chosen": chosen.strip(),
+                "rejected": rejected.strip(),
+            })
+
+    return pairs
+
+
 # Adapter registry
 _ADAPTERS: dict[str, Any] = {
     "rjudge": _adapt_rjudge,
     "pku_saferlhf": _adapt_pku_saferlhf,
     "harmbench": _adapt_harmbench,
     "beavertails": _adapt_beavertails,
+    "crypto_safefunc": _adapt_crypto_safefunc,
 }
 
 
