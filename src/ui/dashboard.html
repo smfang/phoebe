@@ -78,7 +78,7 @@
   .main {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     gap: 16px;
     padding: 16px 24px;
     min-height: calc(100vh - 57px);
@@ -267,8 +267,240 @@
     margin-right: 6px;
   }
 
+  /* Live Monitor (row 3, full width) */
+  .monitor { grid-column: 1 / -1; grid-row: 3; }
+
+  .monitor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .monitor-section { min-width: 0; }
+  .monitor-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  .monitor-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .monitor-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .monitor-live-dot.paused { background: var(--orange); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Rule heatmap */
+  .rule-heatmap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+
+  .rule-card {
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    transition: border-color 0.15s;
+    position: relative;
+  }
+
+  .rule-card.downgraded { border-color: var(--orange); }
+  .rule-card.healthy { border-left: 3px solid var(--green); }
+  .rule-card.warning { border-left: 3px solid var(--orange); }
+  .rule-card.danger { border-left: 3px solid var(--red); }
+
+  .rule-card-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rule-card-status {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .rule-status-active { background: var(--green-dim); color: var(--green); }
+  .rule-status-downgraded { background: var(--orange-dim); color: var(--orange); }
+
+  .rule-card-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  .rule-card-metrics .metric-val {
+    text-align: right;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .rule-card-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+
+  .rule-card-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s;
+  }
+
+  .rule-reinstate-btn {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--orange);
+    background: transparent;
+    color: var(--orange);
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  .rule-reinstate-btn:hover { background: var(--orange-dim); }
+
+  /* Enforcement feed */
+  .enforcement-feed {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .feed-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    transition: background 0.15s;
+  }
+
+  .feed-item:hover { background: var(--surface2); }
+
+  .feed-item-time {
+    color: var(--text2);
+    white-space: nowrap;
+    min-width: 65px;
+    font-size: 10px;
+  }
+
+  .feed-item-action {
+    font-weight: 700;
+    min-width: 45px;
+    font-size: 10px;
+  }
+
+  .feed-item-action.action-pass { color: var(--green); }
+  .feed-item-action.action-block { color: var(--red); }
+
+  .feed-item-system {
+    color: var(--text2);
+    white-space: nowrap;
+    min-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .feed-item-preview {
+    flex: 1;
+    color: var(--text2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feed-item-latency {
+    color: var(--text2);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .feed-item-override {
+    display: flex;
+    gap: 4px;
+  }
+
+  .override-btn {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 600;
+  }
+
+  .override-btn.fp { color: var(--orange); border-color: var(--orange); }
+  .override-btn.fp:hover { background: var(--orange-dim); }
+  .override-btn.ok { color: var(--green); border-color: var(--green); }
+  .override-btn.ok:hover { background: var(--green-dim); }
+
+  .override-applied {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .override-applied.false_positive { background: var(--orange-dim); color: var(--orange); }
+  .override-applied.confirmed { background: var(--green-dim); color: var(--green); }
+
+  /* Rollback history */
+  .rollback-list {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .rollback-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+
+  .rollback-item:last-child { border-bottom: none; }
+
+  .rollback-reason {
+    color: var(--orange);
+    font-size: 10px;
+    margin-top: 2px;
+  }
+
   /* Breach Logs (bottom, full width) */
-  .logs { grid-column: 1 / -1; grid-row: 3; }
+  .logs { grid-column: 1 / -1; grid-row: 4; }
 
   .logs-toolbar {
     display: flex;
@@ -735,6 +967,7 @@
     <span>Breaches <span class="stat-val" id="stat-total">--</span></span>
     <span>Categories <span class="stat-val" id="stat-categories">7</span></span>
     <span>Last 24h <span class="stat-val" id="stat-24h">--</span></span>
+    <span>Ozone <span class="stat-val" id="stat-ozone" style="color:var(--green);">--</span></span>
   </div>
 </div>
 
@@ -938,6 +1171,53 @@
       </div>
       <div class="analysis-summary" id="analysis-summary"></div>
       <div class="analysis-results" id="analysis-results"></div>
+    </div>
+  </div>
+
+  <!-- Live Monitor -->
+  <div class="panel monitor">
+    <div class="panel-header">
+      <span>Live Monitor <span class="monitor-live-dot" id="monitor-dot"></span></span>
+      <div class="monitor-header-controls">
+        <select id="monitor-mode-filter" style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:4px 8px; font-family:var(--font); font-size:11px;">
+          <option value="">All Modes</option>
+          <option value="sync">SYNC</option>
+          <option value="async">ASYNC</option>
+          <option value="quarantine">QUARANTINE</option>
+        </select>
+        <select id="monitor-action-filter" style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:4px 8px; font-family:var(--font); font-size:11px;">
+          <option value="">All Actions</option>
+          <option value="block">Blocks Only</option>
+          <option value="pass">Passes Only</option>
+        </select>
+        <button class="btn btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="toggleMonitorPause()" id="monitor-pause-btn">Pause</button>
+        <button class="btn btn-secondary" style="padding:4px 10px; font-size:10px;" onclick="refreshMonitor()">Refresh</button>
+        <span style="font-size:10px; color:var(--text2);" id="monitor-count">--</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="monitor-grid">
+        <!-- Left: Rule Performance Heatmap -->
+        <div class="monitor-section">
+          <h3>Rule Performance (15-min window)</h3>
+          <div class="rule-heatmap" id="rule-heatmap">
+            <div class="empty-state">Loading metrics...</div>
+          </div>
+          <div style="margin-top:12px;">
+            <h3>Rollback History</h3>
+            <div class="rollback-list" id="rollback-list">
+              <div class="empty-state">No rollbacks</div>
+            </div>
+          </div>
+        </div>
+        <!-- Right: Real-time Enforcement Feed -->
+        <div class="monitor-section">
+          <h3>Enforcement Feed</h3>
+          <div class="enforcement-feed" id="enforcement-feed">
+            <div class="empty-state">No enforcement decisions yet</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1288,6 +1568,22 @@ async function loadStats() {
     }
   } catch (e) {
     console.warn('Stats load failed:', e);
+  }
+
+  // Check Ozone status
+  try {
+    const resp = await fetch(`${API}/api/health`);
+    const data = await resp.json();
+    const ozEl = document.getElementById('stat-ozone');
+    if (data.ozone && data.ozone.enabled) {
+      ozEl.textContent = data.ozone.default_mode.toUpperCase();
+      ozEl.style.color = 'var(--green)';
+    } else {
+      ozEl.textContent = 'OFF';
+      ozEl.style.color = 'var(--text2)';
+    }
+  } catch (e) {
+    document.getElementById('stat-ozone').textContent = '--';
   }
 }
 
@@ -1841,6 +2137,260 @@ function clearAnalysis() {
   document.getElementById('analysis-results').classList.remove('visible');
   document.getElementById('analyzer-file-input').value = '';
 }
+
+// ================================================================
+// Live Monitor
+// ================================================================
+
+let monitorPaused = false;
+let monitorInterval = null;
+let enforcementEntries = [];
+let rollbackHistory = [];
+
+function initMonitor() {
+  refreshMonitor();
+  // Poll every 10 seconds
+  monitorInterval = setInterval(() => {
+    if (!monitorPaused) refreshMonitor();
+  }, 10000);
+}
+
+async function refreshMonitor() {
+  await Promise.all([
+    loadEnforcementFeed(),
+    loadRuleMetrics(),
+    loadRuleStatuses(),
+  ]);
+}
+
+function toggleMonitorPause() {
+  monitorPaused = !monitorPaused;
+  const btn = document.getElementById('monitor-pause-btn');
+  const dot = document.getElementById('monitor-dot');
+  btn.textContent = monitorPaused ? 'Resume' : 'Pause';
+  dot.classList.toggle('paused', monitorPaused);
+}
+
+// --- Enforcement Feed ---
+async function loadEnforcementFeed() {
+  const modeFilter = document.getElementById('monitor-mode-filter').value;
+  const actionFilter = document.getElementById('monitor-action-filter').value;
+
+  const params = new URLSearchParams();
+  if (actionFilter) params.set('action', actionFilter);
+  params.set('limit', '50');
+
+  try {
+    const resp = await fetch(`${API}/api/ozone/log?${params}`);
+    const data = await resp.json();
+    enforcementEntries = data.entries || [];
+
+    // Client-side mode filter
+    let filtered = enforcementEntries;
+    if (modeFilter) {
+      filtered = filtered.filter(e => e.mode === modeFilter);
+    }
+
+    renderEnforcementFeed(filtered);
+    document.getElementById('monitor-count').textContent = `${filtered.length} entries`;
+  } catch (e) {
+    document.getElementById('enforcement-feed').innerHTML =
+      `<div class="empty-state">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderEnforcementFeed(entries) {
+  const feed = document.getElementById('enforcement-feed');
+
+  if (entries.length === 0) {
+    feed.innerHTML = '<div class="empty-state">No enforcement decisions yet</div>';
+    return;
+  }
+
+  feed.innerHTML = entries.map(e => {
+    const ts = e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : '--';
+    const actionClass = e.action === 'block' ? 'action-block' : 'action-pass';
+    const cat = CATEGORY_NAMES[e.category] || e.category || '--';
+    const mode = (e.mode || '').toUpperCase();
+    const latency = e.latency_ms ? `${Math.round(e.latency_ms)}ms` : '';
+    const sev = e.severity || 0;
+    const preview = e.explanation ? truncate(e.explanation, 80) : '--';
+
+    // Override UI
+    let overrideHtml = '';
+    if (e.analyst_override) {
+      overrideHtml = `<span class="override-applied ${e.analyst_override}">${e.analyst_override === 'false_positive' ? 'FP' : 'OK'}</span>`;
+    } else if (e.action === 'block') {
+      overrideHtml = `
+        <button class="override-btn fp" onclick="recordOverride('${e.log_id}', 'false_positive', this)" title="Mark as false positive">FP</button>
+        <button class="override-btn ok" onclick="recordOverride('${e.log_id}', 'confirmed', this)" title="Confirm as correct block">OK</button>
+      `;
+    }
+
+    return `<div class="feed-item">
+      <span class="feed-item-time">${ts}</span>
+      <span class="feed-item-action ${actionClass}">${e.action.toUpperCase()}</span>
+      <span class="category-badge">${escapeHtml(cat)}</span>
+      ${sev > 0 ? `<span class="severity-badge sev-${sev}" style="font-size:9px;">${sev}</span>` : ''}
+      <span class="feed-item-system" title="${escapeHtml(e.ai_system_id || '')}">${escapeHtml(truncate(e.ai_system_id || '--', 15))}</span>
+      <span class="feed-item-preview" title="${escapeHtml(e.explanation || '')}">${escapeHtml(preview)}</span>
+      <span class="feed-item-latency">${latency}</span>
+      <span style="font-size:9px; color:var(--text2);">${mode}</span>
+      <span class="feed-item-override">${overrideHtml}</span>
+    </div>`;
+  }).join('');
+}
+
+async function recordOverride(logId, override, btn) {
+  try {
+    await fetch(`${API}/api/ozone/override`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ log_id: logId, override }),
+    });
+    // Replace buttons with applied badge
+    const parent = btn.parentElement;
+    parent.innerHTML = `<span class="override-applied ${override}">${override === 'false_positive' ? 'FP' : 'OK'}</span>`;
+  } catch (e) {
+    console.warn('Override failed:', e);
+  }
+}
+
+// --- Rule Metrics Heatmap ---
+async function loadRuleMetrics() {
+  try {
+    const resp = await fetch(`${API}/api/ozone/metrics`);
+    const data = await resp.json();
+    renderRuleHeatmap(data.metrics || [], data.fp_threshold || 0.02);
+  } catch (e) {
+    document.getElementById('rule-heatmap').innerHTML =
+      '<div class="empty-state">Metrics unavailable</div>';
+  }
+}
+
+function renderRuleHeatmap(metrics, fpThreshold) {
+  const container = document.getElementById('rule-heatmap');
+
+  // Merge metrics with all known categories for complete view
+  const allCats = Object.keys(CATEGORY_NAMES);
+  const metricMap = {};
+  for (const m of metrics) metricMap[m.category] = m;
+
+  const cards = allCats.map(cat => {
+    const m = metricMap[cat] || {
+      rule_id: `${cat}.block`,
+      category: cat,
+      total_blocks: 0,
+      confirmed_true: 0,
+      confirmed_false: 0,
+      pending_review: 0,
+      false_positive_rate: 0,
+      abandonment_rate: 0,
+      status: 'active',
+    };
+
+    const fpRate = m.false_positive_rate || 0;
+    const abandonRate = m.abandonment_rate || 0;
+    const isDowngraded = m.status === 'downgraded';
+
+    // Determine health class
+    let healthClass = 'healthy';
+    if (isDowngraded) healthClass = 'danger';
+    else if (fpRate > fpThreshold * 0.5) healthClass = 'warning';
+    else if (fpRate > fpThreshold) healthClass = 'danger';
+
+    const fpBarWidth = Math.min(100, fpRate * 100 / (fpThreshold * 2)) ;
+    const fpBarColor = fpRate > fpThreshold ? 'var(--red)' : (fpRate > fpThreshold * 0.5 ? 'var(--orange)' : 'var(--green)');
+
+    const reinstateBtn = isDowngraded
+      ? `<button class="rule-reinstate-btn" onclick="reinstateRule('${m.rule_id}')">Reinstate</button>`
+      : '';
+
+    return `<div class="rule-card ${healthClass} ${isDowngraded ? 'downgraded' : ''}">
+      <div class="rule-card-name">
+        ${escapeHtml(CATEGORY_NAMES[cat] || cat)}
+        <span class="rule-card-status ${isDowngraded ? 'rule-status-downgraded' : 'rule-status-active'}">
+          ${isDowngraded ? 'DOWNGRADED' : 'ACTIVE'}
+        </span>
+      </div>
+      <div class="rule-card-metrics">
+        <span>Blocks</span><span class="metric-val">${m.total_blocks}</span>
+        <span>FP Rate</span><span class="metric-val" style="color:${fpBarColor}">${(fpRate * 100).toFixed(1)}%</span>
+        <span>Abandon</span><span class="metric-val">${(abandonRate * 100).toFixed(1)}%</span>
+        <span>Pending</span><span class="metric-val">${m.pending_review}</span>
+      </div>
+      <div class="rule-card-bar">
+        <div class="rule-card-bar-fill" style="width:${fpBarWidth}%; background:${fpBarColor};"></div>
+      </div>
+      ${reinstateBtn}
+    </div>`;
+  });
+
+  container.innerHTML = cards.join('');
+}
+
+async function reinstateRule(ruleId) {
+  try {
+    const resp = await fetch(`${API}/api/ozone/reinstate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule_id: ruleId }),
+    });
+    const data = await resp.json();
+    if (data.reinstated) {
+      refreshMonitor();
+    } else {
+      alert(data.error || 'Failed to reinstate');
+    }
+  } catch (e) {
+    console.warn('Reinstate failed:', e);
+  }
+}
+
+// --- Rule Statuses (for rollback history) ---
+async function loadRuleStatuses() {
+  try {
+    const resp = await fetch(`${API}/api/ozone/rules`);
+    const data = await resp.json();
+    const rules = data.rules || [];
+
+    const downgraded = rules.filter(r => !r.active);
+    renderRollbackHistory(downgraded);
+  } catch (e) {
+    // Silently fail — rollback list is supplementary
+  }
+}
+
+function renderRollbackHistory(downgradedRules) {
+  const list = document.getElementById('rollback-list');
+
+  if (downgradedRules.length === 0) {
+    list.innerHTML = '<div class="empty-state">No active rollbacks</div>';
+    return;
+  }
+
+  list.innerHTML = downgradedRules.map(r => {
+    const ts = r.downgraded_at
+      ? new Date(r.downgraded_at * 1000).toLocaleString()
+      : '--';
+    const cat = CATEGORY_NAMES[r.category] || r.category;
+
+    return `<div class="rollback-item">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span><span class="category-badge">${escapeHtml(cat)}</span> <strong>${escapeHtml(r.rule_id)}</strong></span>
+        <span style="font-size:10px; color:var(--text2);">${ts}</span>
+      </div>
+      <div class="rollback-reason">${escapeHtml(r.reason || 'Auto-rollback triggered')}</div>
+    </div>`;
+  }).join('');
+}
+
+// Re-filter on dropdown change
+document.getElementById('monitor-mode-filter').addEventListener('change', loadEnforcementFeed);
+document.getElementById('monitor-action-filter').addEventListener('change', loadEnforcementFeed);
+
+// Start monitor on page load
+document.addEventListener('DOMContentLoaded', initMonitor);
 </script>
 </body>
 </html>
