@@ -35,6 +35,7 @@ from src.arena.models import (
 from src.arena.scorer import Scorer
 from src.arena.store import ArenaStore
 from src.arena.taxonomy import ALL_CATEGORIES, CATEGORY_DESCRIPTIONS, SafetyCategory
+from src.ozone.ozone import OzoneEnforcement, EnforcementMode
 from src.ui.dashboard import TNS_DDL, TNSDashboard
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class ArenaServer:
         facilitator_url: str = "",
         dev_mode: bool = False,
         safety_classifier: Any | None = None,
+        ozone: OzoneEnforcement | None = None,
     ) -> None:
         self._scorer = scorer
         self._store = store
@@ -88,6 +90,7 @@ class ArenaServer:
         self._dev_mode = dev_mode
         self._rate_limiter = RateLimiter()
         self._safety_classifier = safety_classifier
+        self._ozone = ozone
 
     def build_app(self) -> Starlette:
         routes = [
@@ -100,6 +103,18 @@ class ArenaServer:
             Route("/api/taxonomy", self._get_taxonomy, methods=["GET"]),
             Route("/api/health", self._health, methods=["GET"]),
         ]
+
+        # Mount Ozone enforcement endpoints
+        if self._ozone:
+            routes.extend([
+                Route("/api/ozone/evaluate", self._ozone_evaluate, methods=["POST"]),
+                Route("/api/ozone/log", self._ozone_log, methods=["GET"]),
+                Route("/api/ozone/metrics", self._ozone_metrics, methods=["GET"]),
+                Route("/api/ozone/override", self._ozone_override, methods=["POST"]),
+                Route("/api/ozone/abandon", self._ozone_abandon, methods=["POST"]),
+                Route("/api/ozone/rules", self._ozone_rules, methods=["GET"]),
+                Route("/api/ozone/reinstate", self._ozone_reinstate, methods=["POST"]),
+            ])
 
         # Mount T&S analyst dashboard if safety classifier is available
         if self._safety_classifier:
@@ -390,9 +405,161 @@ class ArenaServer:
         ]
         return JSONResponse({"categories": categories})
 
+    # ------------------------------------------------------------------
+    # Ozone enforcement endpoints
+    # ------------------------------------------------------------------
+
+    async def _ozone_evaluate(self, request: Request) -> Response:
+        """POST /api/ozone/evaluate — Evaluate an AI output against GA Guard."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+        ai_system_id = body.get("ai_system_id", "")
+        prompt = body.get("prompt", "")
+        output = body.get("output", "")
+        mode_str = body.get("mode", "")
+        categories = body.get("categories")
+
+        if not ai_system_id:
+            return JSONResponse({"error": "ai_system_id required"}, status_code=400)
+        if not output:
+            return JSONResponse({"error": "output required"}, status_code=400)
+        if len(output) > 50_000:
+            return JSONResponse({"error": "output too long (max 50000 chars)"}, status_code=400)
+
+        mode = None
+        if mode_str:
+            try:
+                mode = EnforcementMode(mode_str)
+            except ValueError:
+                return JSONResponse(
+                    {"error": f"invalid mode: {mode_str}. Must be sync/async/quarantine"},
+                    status_code=400,
+                )
+
+        decision = await self._ozone.evaluate(
+            ai_system_id=ai_system_id,
+            prompt=prompt,
+            output=output,
+            mode=mode,
+            categories=categories,
+        )
+        return JSONResponse(decision.to_dict())
+
+    async def _ozone_log(self, request: Request) -> Response:
+        """GET /api/ozone/log — Query enforcement log."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        entries = await self._ozone.get_enforcement_log(
+            ai_system_id=request.query_params.get("ai_system_id"),
+            category=request.query_params.get("category"),
+            action=request.query_params.get("action"),
+            limit=min(int(request.query_params.get("limit", "100")), 1000),
+        )
+        return JSONResponse({"entries": entries, "count": len(entries)})
+
+    async def _ozone_metrics(self, request: Request) -> Response:
+        """GET /api/ozone/metrics — Current rule performance metrics."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        metrics = await self._ozone.compute_rule_metrics()
+        return JSONResponse({
+            "metrics": metrics,
+            "window_seconds": self._ozone._metrics_window,
+            "fp_threshold": self._ozone._fp_threshold,
+        })
+
+    async def _ozone_override(self, request: Request) -> Response:
+        """POST /api/ozone/override — Record analyst override for an enforcement decision."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+        log_id = body.get("log_id", "")
+        override = body.get("override", "")
+
+        if not log_id:
+            return JSONResponse({"error": "log_id required"}, status_code=400)
+        if override not in ("false_positive", "confirmed"):
+            return JSONResponse(
+                {"error": "override must be 'false_positive' or 'confirmed'"},
+                status_code=400,
+            )
+
+        await self._ozone.record_override(log_id, override)
+        return JSONResponse({"log_id": log_id, "override": override, "recorded": True})
+
+    async def _ozone_abandon(self, request: Request) -> Response:
+        """POST /api/ozone/abandon — Record user abandonment for an enforcement decision."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+        log_id = body.get("log_id", "")
+        if not log_id:
+            return JSONResponse({"error": "log_id required"}, status_code=400)
+
+        await self._ozone.record_abandonment(log_id)
+        return JSONResponse({"log_id": log_id, "abandoned": True})
+
+    async def _ozone_rules(self, request: Request) -> Response:
+        """GET /api/ozone/rules — Current rule enforcement statuses."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        statuses = await self._ozone.get_rule_statuses()
+        return JSONResponse({"rules": statuses, "count": len(statuses)})
+
+    async def _ozone_reinstate(self, request: Request) -> Response:
+        """POST /api/ozone/reinstate — Reinstate a downgraded rule."""
+        if not self._ozone:
+            return JSONResponse({"error": "Ozone not configured"}, status_code=503)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+        rule_id = body.get("rule_id", "")
+        if not rule_id:
+            return JSONResponse({"error": "rule_id required"}, status_code=400)
+
+        reinstated = await self._ozone.reinstate_rule(rule_id)
+        if not reinstated:
+            return JSONResponse({"error": f"rule {rule_id} is not downgraded"}, status_code=400)
+
+        return JSONResponse({"rule_id": rule_id, "reinstated": True})
+
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
+
     async def _health(self, request: Request) -> Response:
         bounties = await self._store.list_active_bounties()
-        return JSONResponse({
+        resp: dict[str, Any] = {
             "status": "ok", "active_bounties": len(bounties),
             "x402_wallet": self._arena_wallet, "dev_mode": self._dev_mode,
-        })
+        }
+        if self._ozone:
+            resp["ozone"] = {
+                "enabled": True,
+                "default_mode": self._ozone._default_mode.value,
+                "fp_threshold": self._ozone._fp_threshold,
+                "metrics_window_seconds": self._ozone._metrics_window,
+            }
+        return JSONResponse(resp)

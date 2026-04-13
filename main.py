@@ -12,6 +12,7 @@ from src.arena.server import ArenaServer
 from src.arena.store import ArenaStore
 from src.clickhouse.clickhouse import Clickhouse
 from src.config import CONFIG
+from src.ozone.ozone import OzoneEnforcement, EnforcementMode
 from src.safety.classifier import SafetyClassifier
 from src.tools.executor import ToolExecutor
 from src.tools.registry import TOOL_REGISTRY, ToolContext
@@ -227,6 +228,13 @@ def arena_cmd(
         model_endpoint=model_endpoint,
     )
 
+    # Build Ozone enforcement layer
+    ozone = OzoneEnforcement(
+        classifier=classifier,
+        clickhouse=clickhouse,
+        default_mode=EnforcementMode.SYNC,
+    )
+
     server = ArenaServer(
         scorer=scorer,
         store=store,
@@ -235,6 +243,7 @@ def arena_cmd(
         facilitator_url=CONFIG.x402_facilitator_url,
         dev_mode=is_dev,
         safety_classifier=classifier,
+        ozone=ozone,
     )
 
     host = arena_host or CONFIG.arena_host
@@ -253,6 +262,11 @@ def arena_cmd(
                 pass
         logger.info("T&S breach log table initialized")
 
+        # Initialize Ozone enforcement tables and start metrics loop
+        await ozone.initialize()
+        metrics_task = asyncio.create_task(ozone.start_metrics_loop())
+        logger.info("Ozone enforcement layer initialized")
+
         import uvicorn
 
         app = server.build_app()
@@ -261,9 +275,11 @@ def arena_cmd(
 
         logger.info("Sandbox Arena starting on %s:%d", host, port)
         logger.info("T&S Dashboard available at http://%s:%d/tns", host, port)
+        logger.info("Ozone endpoints available at http://%s:%d/api/ozone/*", host, port)
         logger.info("x402 wallet: %s (chain: %s)", x402_client.wallet_address, CONFIG.x402_chain)
         logger.info("Dev mode: %s", is_dev)
         await srv.serve()
+        metrics_task.cancel()
 
     try:
         asyncio.run(run())
