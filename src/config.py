@@ -100,6 +100,18 @@ class Config(BaseSettings):
     dpo_max_per_source: int = 10_000
     """max rows to pull from each dataset source"""
 
+    # domain modules — pluggable safety verification per problem domain
+    dao_enabled: bool = False
+    """register the DAO domain module at startup (three-stage function-call verification)"""
+    dao_simulation_rpc_url: str = "http://localhost:8545"
+    """JSON-RPC endpoint for the DAO simulation backend (Anvil/Foundry/Tenderly)"""
+    dao_alignment_model_name: str = ""
+    """override model for the DAO alignment judge; empty = reuse safety_classifier_model"""
+    dao_alignment_endpoint: str = ""
+    """override endpoint for the DAO alignment judge; empty = reuse safety_classifier_endpoint"""
+    dao_scammer_addresses: str = ""
+    """comma-separated allow-list of known-scammer addresses for the DAO validator"""
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

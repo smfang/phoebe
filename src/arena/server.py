@@ -35,7 +35,10 @@ from src.arena.models import (
 from src.arena.scorer import Scorer
 from src.arena.store import ArenaStore
 from src.arena.taxonomy import ALL_CATEGORIES, CATEGORY_DESCRIPTIONS, SafetyCategory
-from src.ozone.ozone import OzoneEnforcement, EnforcementMode
+from src.domains.enforcement import DomainEnforcement
+from src.domains.registry import DomainRegistry
+from src.domains.routes import DomainRoutes
+from src.ozone.ozone import EnforcementMode, OzoneEnforcement
 from src.ui.dashboard import TNS_DDL, TNSDashboard
 
 logger = logging.getLogger(__name__)
@@ -81,6 +84,8 @@ class ArenaServer:
         dev_mode: bool = False,
         safety_classifier: Any | None = None,
         ozone: OzoneEnforcement | None = None,
+        domain_registry: DomainRegistry | None = None,
+        domain_enforcement: DomainEnforcement | None = None,
     ) -> None:
         self._scorer = scorer
         self._store = store
@@ -91,6 +96,8 @@ class ArenaServer:
         self._rate_limiter = RateLimiter()
         self._safety_classifier = safety_classifier
         self._ozone = ozone
+        self._domain_registry = domain_registry
+        self._domain_enforcement = domain_enforcement
 
     def build_app(self) -> Starlette:
         routes = [
@@ -123,6 +130,15 @@ class ArenaServer:
                 store=self._store,
             )
             routes.extend(dashboard.routes())
+
+        # Mount domain enforcement routes if configured
+        if self._domain_registry is not None and self._domain_enforcement is not None:
+            domain_routes = DomainRoutes(
+                registry=self._domain_registry,
+                enforcement=self._domain_enforcement,
+                store=self._store._ch if hasattr(self._store, "_ch") else None,
+            )
+            routes.extend(domain_routes.routes())
 
         middleware = [
             Middleware(

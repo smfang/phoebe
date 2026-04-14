@@ -12,7 +12,10 @@ from src.arena.server import ArenaServer
 from src.arena.store import ArenaStore
 from src.clickhouse.clickhouse import Clickhouse
 from src.config import CONFIG
-from src.ozone.ozone import OzoneEnforcement, EnforcementMode
+from src.domains.ddl import DOMAIN_DDL
+from src.domains.enforcement import DomainEnforcement
+from src.domains.registry import DomainRegistry
+from src.ozone.ozone import EnforcementMode, OzoneEnforcement
 from src.safety.classifier import SafetyClassifier
 from src.tools.executor import ToolExecutor
 from src.tools.registry import TOOL_REGISTRY, ToolContext
@@ -122,6 +125,49 @@ def build_safety_classifier() -> SafetyClassifier:
         model_name=CONFIG.safety_classifier_model,
         endpoint=CONFIG.safety_classifier_endpoint,
     )
+
+
+def build_domain_registry(safety_classifier: SafetyClassifier) -> DomainRegistry:
+    """Build the domain registry and register modules enabled by config.
+
+    Each domain module is opt-in via its `*_enabled` flag. Third-party modules
+    can also publish themselves via the `phoebe.domains` Python entry point
+    group; those are auto-discovered last.
+    """
+    registry = DomainRegistry()
+
+    if CONFIG.dao_enabled:
+        from src.domains.dao import build as build_dao
+
+        # Reuse the existing safety classifier as the alignment judge unless an
+        # override endpoint is configured (e.g. a DPO-fine-tuned model).
+        if CONFIG.dao_alignment_endpoint:
+            judge = SafetyClassifier(
+                api_key=CONFIG.model_api_key,
+                model_name=CONFIG.dao_alignment_model_name or CONFIG.safety_classifier_model,
+                endpoint=CONFIG.dao_alignment_endpoint,
+            )
+        else:
+            judge = safety_classifier
+
+        scammers = {
+            a.strip().lower()
+            for a in CONFIG.dao_scammer_addresses.split(",")
+            if a.strip()
+        }
+
+        registry.register(build_dao(
+            classifier=judge,
+            rpc_url=CONFIG.dao_simulation_rpc_url,
+            scammer_addresses=scammers or None,
+        ))
+
+    # Discover third-party domain modules published via entry points.
+    discovered = registry.discover_entry_points(CONFIG)
+    if discovered:
+        logger.info("Discovered %d domain module(s) via entry points", discovered)
+
+    return registry
 
 
 def build_arena_services(
@@ -235,6 +281,16 @@ def arena_cmd(
         default_mode=EnforcementMode.SYNC,
     )
 
+    # Build domain registry (DAO + any third-party modules) and orchestrator.
+    # Wire Ozone in so domain decisions feed the cross-cutting enforcement
+    # log, automated rollback, and Live Monitor dashboard.
+    domain_registry = build_domain_registry(classifier)
+    domain_enforcement = DomainEnforcement(
+        registry=domain_registry,
+        ozone=ozone,
+        store=clickhouse if domain_registry.names() else None,
+    )
+
     server = ArenaServer(
         scorer=scorer,
         store=store,
@@ -244,6 +300,8 @@ def arena_cmd(
         dev_mode=is_dev,
         safety_classifier=classifier,
         ozone=ozone,
+        domain_registry=domain_registry,
+        domain_enforcement=domain_enforcement,
     )
 
     host = arena_host or CONFIG.arena_host
@@ -266,6 +324,17 @@ def arena_cmd(
         await ozone.initialize()
         metrics_task = asyncio.create_task(ozone.start_metrics_loop())
         logger.info("Ozone enforcement layer initialized")
+
+        # Initialize domain-evaluations + DAO-pending tables
+        for ddl in DOMAIN_DDL:
+            try:
+                await clickhouse.query(ddl.strip())
+            except Exception:
+                pass
+        if domain_registry.names():
+            logger.info(
+                "Domain modules ready: %s", ", ".join(domain_registry.names())
+            )
 
         import uvicorn
 
