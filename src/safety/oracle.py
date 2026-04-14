@@ -1,7 +1,7 @@
 """
-PhoebeOracle on-chain client.
+SaraOracle on-chain client.
 
-Publishes safety evaluation results to the PhoebeOracle contract,
+Publishes safety evaluation results to the SaraOracle contract,
 making them available to smart contracts (via view functions) and
 AI agents (via events). Follows the same dual-mode pattern as
 erc8004.py: direct on-chain transactions or HTTP relayer.
@@ -53,7 +53,7 @@ CATEGORY_INDEX: dict[str, int] = {
 }
 
 
-# Minimal ABI for PhoebeOracle — only the functions we call
+# Minimal ABI for SaraOracle — only the functions we call
 ORACLE_ABI = [
     {
         "name": "publishResult",
@@ -165,7 +165,7 @@ class OracleRecord:
 @dataclass
 class OraclePublisher:
     """
-    Publishes evaluation results to the PhoebeOracle contract.
+    Publishes evaluation results to the SaraOracle contract.
 
     Two modes:
     - Direct: uses eth_account to sign and submit transactions

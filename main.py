@@ -131,7 +131,7 @@ def build_domain_registry(safety_classifier: SafetyClassifier) -> DomainRegistry
     """Build the domain registry and register modules enabled by config.
 
     Each domain module is opt-in via its `*_enabled` flag. Third-party modules
-    can also publish themselves via the `phoebe.domains` Python entry point
+    can also publish themselves via the `sara.domains` Python entry point
     group; those are auto-discovered last.
     """
     registry = DomainRegistry()
@@ -375,7 +375,7 @@ def chat(
     x402_wallet_address: str | None,
     dev_mode: bool | None,
 ):
-    """Interactive chat mode with Phoebe (arena judge)."""
+    """Interactive chat mode with Sara (arena judge)."""
     clickhouse = build_clickhouse(
         clickhouse_host, clickhouse_port, clickhouse_user,
         clickhouse_password, clickhouse_database,
@@ -401,7 +401,7 @@ def chat(
         await store.initialize()
         await executor.initialize()
         logger.info("Services initialized. Starting interactive chat.")
-        print("\nPhoebe (Arena Judge) ready. Type your message (Ctrl+C to exit).\n")
+        print("\nSara (Arena Judge) ready. Type your message (Ctrl+C to exit).\n")
 
         while True:
             try:
@@ -414,7 +414,7 @@ def chat(
 
             logger.info("User: %s", user_input)
             response = await agent.chat(user_input)
-            print(f"\nPhoebe: {response}\n")
+            print(f"\nSara: {response}\n")
 
     try:
         asyncio.run(run())
@@ -468,7 +468,7 @@ def admin_cmd(
         await store.initialize()
         await executor.initialize()
         logger.info("Admin console initialized.")
-        print("\nPhoebe Admin Console ready. Type your command (Ctrl+C to exit).")
+        print("\nSara Admin Console ready. Type your command (Ctrl+C to exit).")
         print("Examples: 'show arena stats', 'create a bounty', 'list submissions'\n")
 
         while True:
@@ -482,7 +482,7 @@ def admin_cmd(
 
             logger.info("Admin: %s", user_input)
             response = await agent.chat(user_input)
-            print(f"\nPhoebe: {response}\n")
+            print(f"\nSara: {response}\n")
 
     try:
         asyncio.run(run())
@@ -513,7 +513,7 @@ def redteam_cmd(
     bounty_id: str | None,
     auto: bool,
 ):
-    """Red team mode — Phoebe generates and executes attacks based on safety rules."""
+    """Red team mode — Sara generates and executes attacks based on safety rules."""
     clickhouse = build_clickhouse(
         clickhouse_host, clickhouse_port, clickhouse_user,
         clickhouse_password, clickhouse_database,
@@ -565,7 +565,7 @@ def redteam_cmd(
 
         if auto and target_bounty:
             # Auto mode: send a single instruction to run a full campaign
-            print(f"\nPhoebe Red Team — AUTO MODE")
+            print(f"\nSara Red Team — AUTO MODE")
             print(f"Target: {target_bounty.target_model_name}")
             print(f"Bounty: {target_bounty.bounty_id}")
             print(f"Pool: {target_bounty.remaining_usdc} USDC\n")
@@ -582,14 +582,14 @@ def redteam_cmd(
                 "(use bounty.taxonomy to check). Report a summary when done."
             )
             response = await agent.chat(campaign_instruction)
-            print(f"\nPhoebe: {response}\n")
+            print(f"\nSara: {response}\n")
 
         else:
             # Interactive mode
             bounty_info = ""
             if target_bounty:
                 bounty_info = f" | Target: {target_bounty.target_model_name} ({target_bounty.bounty_id})"
-            print(f"\nPhoebe Red Team — INTERACTIVE MODE{bounty_info}")
+            print(f"\nSara Red Team — INTERACTIVE MODE{bounty_info}")
             print("Commands: 'scan rules', 'attack category X', 'run campaign', 'reproduce <prompt>'")
             print("Type your instruction (Ctrl+C to exit).\n")
 
@@ -604,7 +604,7 @@ def redteam_cmd(
 
                 logger.info("RedTeam: %s", user_input)
                 response = await agent.chat(user_input)
-                print(f"\nPhoebe: {response}\n")
+                print(f"\nSara: {response}\n")
 
     try:
         asyncio.run(run())

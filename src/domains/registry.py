@@ -2,7 +2,7 @@
 Runtime registry of installed domain modules.
 
 Modules can be registered programmatically at bootstrap or discovered via
-Python entry points (`phoebe.domains` group). Registration is idempotent
+Python entry points (`sara.domains` group). Registration is idempotent
 per name with a warning on replacement.
 """
 
@@ -66,7 +66,7 @@ class DomainRegistry:
     def names(self) -> list[str]:
         return list(self._modules.keys())
 
-    def discover_entry_points(self, config: Any, group: str = "phoebe.domains") -> int:
+    def discover_entry_points(self, config: Any, group: str = "sara.domains") -> int:
         """Discover and register modules published via Python entry points.
 
         Each entry point should be a callable `build(config) -> DomainModule`.

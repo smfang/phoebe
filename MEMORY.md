@@ -1,8 +1,8 @@
-# Phoebe Project Memory
+# Sara Project Memory
 
 ## Current State
 
-Phoebe is an AI safety agent adapted from an AT Protocol Trust & Safety architecture into a **Sandbox Arena** — a red-teaming marketplace where adversarial researchers attack target AI models and Phoebe acts as the centralized safety judge.
+Sara is an AI safety agent adapted from an AT Protocol Trust & Safety architecture into a **Sandbox Arena** — a red-teaming marketplace where adversarial researchers attack target AI models and Sara acts as the centralized safety judge.
 
 ### Branch: `claude/explain-codebase-mle8k2lr9c27lof0-S2PFT`
 
@@ -24,11 +24,11 @@ Latest commit: `1d57ec4` — Add SentientAGI/crypto-agent-safe-function-calling 
 ### Blockchain / x402
 - **Wallet** (`src/x402/wallet.py`) — EVM wallet with EIP-191 signing, USDC contract addresses per chain
 - **x402 Client** (`src/x402/client.py`) — HTTP 402 payment flow
-- **Oracle** (`src/safety/oracle.py`) — OraclePublisher for PhoebeOracle contract (publish, query, is_unsafe, get_severity, get_history)
+- **Oracle** (`src/safety/oracle.py`) — OraclePublisher for SaraOracle contract (publish, query, is_unsafe, get_severity, get_history)
 - **Oracle Indexer** (`src/safety/oracle_indexer.py`) — Event polling for ResultPublished
 - **Payout Proof** (`src/safety/payout_proof.py`) — EIP-191 signed payout authorization + lightweight evaluation receipts
-- **Escrow Contract** (`contracts/PhoebeEscrow.sol`) — USDC escrow with signature-verified claims
-- **Oracle Contract** (`contracts/PhoebeOracle.sol`) — On-chain evaluation result storage
+- **Escrow Contract** (`contracts/SaraEscrow.sol`) — USDC escrow with signature-verified claims
+- **Oracle Contract** (`contracts/SaraOracle.sol`) — On-chain evaluation result storage
 
 ### TEE / ERC-8004 (Feature Branch — Self-Contained)
 - **TEE Classifier** (`src/safety/tee_classifier.py`) — Phala TEE proxy wrapping SafetyClassifier
@@ -83,8 +83,8 @@ Latest commit: `1d57ec4` — Add SentientAGI/crypto-agent-safe-function-calling 
 - 29 tests in `tests/test_eval_harness.py`
 
 ## Key Design Decisions
-1. **x402 over Bittensor** — Stable USDC payments with Phoebe as centralized judge instead of decentralized subnet
+1. **x402 over Bittensor** — Stable USDC payments with Sara as centralized judge instead of decentralized subnet
 2. **TEE as optional feature** — Moved off main code path into self-contained module
 3. **GA Guard as canonical taxonomy** — All 7 categories with compliance anchors, legacy categories mapped via LEGACY_TO_GA_GUARD
-4. **LLM-as-judge pattern** — SafetyClassifier uses Claude to evaluate content against policy rules (same pattern as Phoebe's core agent)
+4. **LLM-as-judge pattern** — SafetyClassifier uses Claude to evaluate content against policy rules (same pattern as Sara's core agent)
 5. **ClickHouse for persistence** — ReplacingMergeTree with FINAL for upsert semantics; ngramDistance for novelty detection

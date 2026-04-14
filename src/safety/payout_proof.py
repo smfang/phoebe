@@ -1,7 +1,7 @@
 """
 Two-phase x402 payout proof generation.
 
-After Phoebe evaluates a submission and computes a payout, this module
+After Sara evaluates a submission and computes a payout, this module
 generates a signed payout authorization that serves as cryptographic
 proof of a verified vulnerability. The red teamer can present this
 proof to claim USDC from the escrow contract or via the x402 facilitator.
@@ -11,11 +11,11 @@ Flow:
   2. generate_payout_proof() signs (bountyId, submissionId, evaluationId,
      recipient, amount) with the arena wallet
   3. The SignedPayoutProof is returned to the red teamer
-  4. Red teamer calls PhoebeEscrow.claim() with the proof, or
+  4. Red teamer calls SaraEscrow.claim() with the proof, or
      presents it to the x402 facilitator for settlement
 
 The proof is an EIP-191 personal_sign that the escrow contract or
-facilitator can verify against the authorized Phoebe signer address.
+facilitator can verify against the authorized Sara signer address.
 """
 
 import hashlib
@@ -58,7 +58,7 @@ class SignedPayoutProof:
         }
 
     def to_claim_args(self) -> dict[str, Any]:
-        """Format for calling PhoebeEscrow.claim() on-chain."""
+        """Format for calling SaraEscrow.claim() on-chain."""
         return {
             "bountyId": f"0x{hashlib.sha256(self.bounty_id.encode()).hexdigest()}",
             "submissionId": f"0x{hashlib.sha256(self.submission_id.encode()).hexdigest()}",
@@ -82,7 +82,7 @@ def generate_payout_proof(
 
     Uses the arena wallet (Wallet or DevWallet from src/x402/wallet.py)
     to sign the payout details. The signature can be verified on-chain
-    by the PhoebeEscrow contract.
+    by the SaraEscrow contract.
 
     Args:
         wallet: Wallet or DevWallet instance for signing.
@@ -103,11 +103,11 @@ def generate_payout_proof(
     bounty_hash = hashlib.sha256(bounty_id.encode()).hexdigest()
     submission_hash = hashlib.sha256(submission_id.encode()).hexdigest()
 
-    # Canonical message matching PhoebeEscrow.claim() verification:
+    # Canonical message matching SaraEscrow.claim() verification:
     # keccak256(abi.encodePacked(bountyId, submissionId, evaluationId, recipient, amount))
     # We sign this with EIP-191 personal_sign so ecrecover works on-chain.
     message = (
-        f"Phoebe Payout Authorization\n"
+        f"Sara Payout Authorization\n"
         f"Bounty: 0x{bounty_hash}\n"
         f"Submission: 0x{submission_hash}\n"
         f"Evaluation: {evaluation_id}\n"
@@ -171,7 +171,7 @@ def generate_evaluation_receipt(
     """
     Generate a signed evaluation receipt (lightweight, no payout).
 
-    This is the proof that Phoebe evaluated a specific prompt and
+    This is the proof that Sara evaluated a specific prompt and
     classified it. Used as a stage-gate credential: the receipt
     proves the attack was evaluated, allowing progression to the
     next pipeline stage.

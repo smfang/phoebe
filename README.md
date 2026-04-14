@@ -1,6 +1,6 @@
-# Phoebe
+# Sara
 
-Phoebe is an AI-powered trust and safety agent for the [AT Protocol](https://atproto.com/) network. It automates safety operations by analyzing network threats and creating rules to detect and resolve emerging issues. Phoebe uses three different services to achieve this:
+Sara is an AI-powered trust and safety agent for the [AT Protocol](https://atproto.com/) network. It automates safety operations by analyzing network threats and creating rules to detect and resolve emerging issues. Sara uses three different services to achieve this:
 
 - **[Osprey](https://github.com/roostorg/osprey)** - Real-time rules engine for threat detection
 - **[Ozone](https://github.com/bluesky-social/ozone)** - Moderation service for labeling and takedowns
@@ -16,7 +16,7 @@ This allows it to:
 
 ## How It Works
 
-Phoebe uses a model API as its reasoning backer. The agent writes and executes Typescript code in a sandboxed Deno runtime to interact with its tools — querying event data, creating safety rules, and managing moderation actions.
+Sara uses a model API as its reasoning backer. The agent writes and executes Typescript code in a sandboxed Deno runtime to interact with its tools — querying event data, creating safety rules, and managing moderation actions.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -49,7 +49,7 @@ in code that _you_ write, not the agent.
 
 ## Tools
 
-Phoebe has access to the following tools, organized by namespace:
+Sara has access to the following tools, organized by namespace:
 
 | Namespace | Tool | Description |
 |-----------|------|-------------|
@@ -114,7 +114,7 @@ All settings can also be passed as CLI flags (see `--help`).
 
 ### Interactive Chat
 
-Start a conversation with Phoebe to investigate threats and create rules:
+Start a conversation with Sara to investigate threats and create rules:
 
 ```bash
 uv run main.py chat

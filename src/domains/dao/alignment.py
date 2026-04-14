@@ -169,7 +169,7 @@ def _parse_response(raw: dict[str, Any]) -> AlignmentResult:
 
     Accepts either the raw fields we asked for OR the SafetyClassifier's own
     schema (`unsafe`, `severity`, `explanation`) — the latter lets us reuse
-    Phoebe's existing classifier with no model swap on day 1.
+    Sara's existing classifier with no model swap on day 1.
     """
     if "aligned" in raw:
         return AlignmentResult(

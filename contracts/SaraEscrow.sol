@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./PhoebeOracle.sol";
+import "./SaraOracle.sol";
 
 /**
- * @title PhoebeEscrow
+ * @title SaraEscrow
  * @notice Two-phase x402 escrow: bounty funds are locked until a verified
  *         vulnerability proof is presented, then USDC is released to the
  *         red teamer.
  *
  * Flow:
  *   1. Bounty funder calls fund() to deposit USDC into the escrow.
- *   2. Red teamer submits attack → Phoebe evaluates → publishes result
- *      to PhoebeOracle → signs a payout authorization.
- *   3. Red teamer (or Phoebe on their behalf) calls claim() with the
+ *   2. Red teamer submits attack → Sara evaluates → publishes result
+ *      to SaraOracle → signs a payout authorization.
+ *   3. Red teamer (or Sara on their behalf) calls claim() with the
  *      signed payout authorization. The contract verifies:
- *        a. The signature is from an authorized Phoebe signer.
+ *        a. The signature is from an authorized Sara signer.
  *        b. The corresponding oracle result exists and is unsafe.
  *        c. The payout amount <= bounty remaining.
  *   4. USDC is transferred to the red teamer.
@@ -26,7 +26,7 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract PhoebeEscrow {
+contract SaraEscrow {
     // ---------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------
@@ -41,7 +41,7 @@ contract PhoebeEscrow {
     struct PayoutClaim {
         bytes32 bountyId;
         bytes32 submissionId;
-        bytes32 evaluationId;   // reference to PhoebeOracle result
+        bytes32 evaluationId;   // reference to SaraOracle result
         address recipient;
         uint256 amount;
         uint256 timestamp;
@@ -61,12 +61,12 @@ contract PhoebeEscrow {
 
     address public owner;
     IERC20  public usdc;
-    PhoebeOracle public oracle;
+    SaraOracle public oracle;
 
     /// bountyId => escrow
     mapping(bytes32 => BountyEscrow) public escrows;
 
-    /// authorized Phoebe signers (can sign payout authorizations)
+    /// authorized Sara signers (can sign payout authorizations)
     mapping(address => bool) public authorizedSigners;
 
     /// submissionId => already claimed (prevents double-claim)
@@ -77,7 +77,7 @@ contract PhoebeEscrow {
     // ---------------------------------------------------------------
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "PhoebeEscrow: not owner");
+        require(msg.sender == owner, "SaraEscrow: not owner");
         _;
     }
 
@@ -88,7 +88,7 @@ contract PhoebeEscrow {
     constructor(address _usdc, address _oracle) {
         owner = msg.sender;
         usdc = IERC20(_usdc);
-        oracle = PhoebeOracle(_oracle);
+        oracle = SaraOracle(_oracle);
         authorizedSigners[msg.sender] = true;
     }
 
@@ -113,8 +113,8 @@ contract PhoebeEscrow {
      * @dev    Caller must have approved this contract for `amount` USDC.
      */
     function fund(bytes32 bountyId, uint256 amount) external {
-        require(amount > 0, "PhoebeEscrow: zero amount");
-        require(usdc.transferFrom(msg.sender, address(this), amount), "PhoebeEscrow: transfer failed");
+        require(amount > 0, "SaraEscrow: zero amount");
+        require(usdc.transferFrom(msg.sender, address(this), amount), "SaraEscrow: transfer failed");
 
         BountyEscrow storage e = escrows[bountyId];
         if (!e.active) {
@@ -135,9 +135,9 @@ contract PhoebeEscrow {
      * @notice Claim a payout for a verified vulnerability.
      * @param bountyId      The bounty being claimed against
      * @param submissionId  Unique submission ID (prevents double-claim)
-     * @param evaluationId  PhoebeOracle evaluation ID proving the vuln
+     * @param evaluationId  SaraOracle evaluation ID proving the vuln
      * @param amount        USDC payout amount (in token decimals)
-     * @param signature     EIP-191 signature from authorized Phoebe signer
+     * @param signature     EIP-191 signature from authorized Sara signer
      *                      over keccak256(bountyId, submissionId, evaluationId, recipient, amount)
      */
     function claim(
@@ -147,15 +147,15 @@ contract PhoebeEscrow {
         uint256 amount,
         bytes calldata signature
     ) external {
-        require(!claimed[submissionId], "PhoebeEscrow: already claimed");
+        require(!claimed[submissionId], "SaraEscrow: already claimed");
 
         BountyEscrow storage e = escrows[bountyId];
-        require(e.active, "PhoebeEscrow: bounty not active");
-        require(amount <= e.remaining, "PhoebeEscrow: insufficient funds");
+        require(e.active, "SaraEscrow: bounty not active");
+        require(amount <= e.remaining, "SaraEscrow: insufficient funds");
 
         // Verify the oracle result exists and is unsafe
-        PhoebeOracle.EvaluationResult memory result = oracle.getResult(evaluationId);
-        require(result.unsafe, "PhoebeEscrow: result is not unsafe");
+        SaraOracle.EvaluationResult memory result = oracle.getResult(evaluationId);
+        require(result.unsafe, "SaraEscrow: result is not unsafe");
 
         // Verify the payout authorization signature
         bytes32 messageHash = keccak256(
@@ -165,13 +165,13 @@ contract PhoebeEscrow {
             abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
         );
         address signer = _recoverSigner(ethSignedHash, signature);
-        require(authorizedSigners[signer], "PhoebeEscrow: invalid signer");
+        require(authorizedSigners[signer], "SaraEscrow: invalid signer");
 
         // Execute payout
         claimed[submissionId] = true;
         e.remaining -= amount;
 
-        require(usdc.transfer(msg.sender, amount), "PhoebeEscrow: payout transfer failed");
+        require(usdc.transfer(msg.sender, amount), "SaraEscrow: payout transfer failed");
 
         emit PayoutClaimed(bountyId, submissionId, msg.sender, amount);
     }
@@ -182,14 +182,14 @@ contract PhoebeEscrow {
 
     function withdraw(bytes32 bountyId) external {
         BountyEscrow storage e = escrows[bountyId];
-        require(msg.sender == e.funder, "PhoebeEscrow: not funder");
-        require(e.remaining > 0, "PhoebeEscrow: nothing to withdraw");
+        require(msg.sender == e.funder, "SaraEscrow: not funder");
+        require(e.remaining > 0, "SaraEscrow: nothing to withdraw");
 
         uint256 amount = e.remaining;
         e.remaining = 0;
         e.active = false;
 
-        require(usdc.transfer(msg.sender, amount), "PhoebeEscrow: withdraw failed");
+        require(usdc.transfer(msg.sender, amount), "SaraEscrow: withdraw failed");
 
         emit BountyWithdrawn(bountyId, msg.sender, amount);
     }
@@ -201,7 +201,7 @@ contract PhoebeEscrow {
     function _recoverSigner(bytes32 hash, bytes memory sig)
         internal pure returns (address)
     {
-        require(sig.length == 65, "PhoebeEscrow: invalid sig length");
+        require(sig.length == 65, "SaraEscrow: invalid sig length");
 
         bytes32 r;
         bytes32 s;
@@ -214,7 +214,7 @@ contract PhoebeEscrow {
         }
 
         if (v < 27) v += 27;
-        require(v == 27 || v == 28, "PhoebeEscrow: invalid v");
+        require(v == 27 || v == 28, "SaraEscrow: invalid v");
 
         return ecrecover(hash, v, r, s);
     }

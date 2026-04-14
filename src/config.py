@@ -16,7 +16,7 @@ class Config(BaseSettings):
     clickhouse_database: str = "default"
     """default database for the clickhouse server"""
 
-    # model config — used for Phoebe's own LLM reasoning + safety classifier
+    # model config — used for Sara's own LLM reasoning + safety classifier
     model_api: Literal["anthropic", "openai", "openapi"] = "anthropic"
     """the model api to use. must be one of `anthropic`, `openai`, or `openapi`"""
     model_name: str = "claude-sonnet-4-5-20250929"
@@ -72,7 +72,7 @@ class Config(BaseSettings):
 
     # oracle config — on-chain evaluation result publishing
     oracle_contract_address: str = ""
-    """PhoebeOracle contract address (empty = oracle disabled)"""
+    """SaraOracle contract address (empty = oracle disabled)"""
     oracle_chain: str = "base"
     """blockchain where the oracle contract is deployed"""
     oracle_rpc_url: str = ""
@@ -86,7 +86,7 @@ class Config(BaseSettings):
 
     # escrow config — two-phase x402 payout with proof
     escrow_contract_address: str = ""
-    """PhoebeEscrow contract address (empty = escrow disabled)"""
+    """SaraEscrow contract address (empty = escrow disabled)"""
     escrow_enabled: bool = False
     """enable two-phase payout proofs (requires wallet + oracle)"""
 

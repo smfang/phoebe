@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title PhoebeOracle
- * @notice On-chain oracle for Phoebe safety evaluation results.
+ * @title SaraOracle
+ * @notice On-chain oracle for Sara safety evaluation results.
  *
  * Stores structured classification results that are readable by both
  * smart contracts (via view functions) and AI agents (via events).
  *
- * Only authorized Phoebe instances (whitelisted addresses or TEE-verified
+ * Only authorized Sara instances (whitelisted addresses or TEE-verified
  * signers) can publish results. Any contract or off-chain agent can read.
  */
-contract PhoebeOracle {
+contract SaraOracle {
     // ---------------------------------------------------------------
     // Types
     // ---------------------------------------------------------------
@@ -56,7 +56,7 @@ contract PhoebeOracle {
     /// promptHash => all evaluationIds
     mapping(bytes32 => bytes32[]) private _historyByPrompt;
 
-    /// authorized publishers (Phoebe instances)
+    /// authorized publishers (Sara instances)
     mapping(address => bool) public authorizedPublishers;
 
     /// total results published
@@ -67,12 +67,12 @@ contract PhoebeOracle {
     // ---------------------------------------------------------------
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "PhoebeOracle: not owner");
+        require(msg.sender == owner, "SaraOracle: not owner");
         _;
     }
 
     modifier onlyAuthorized() {
-        require(authorizedPublishers[msg.sender], "PhoebeOracle: not authorized");
+        require(authorizedPublishers[msg.sender], "SaraOracle: not authorized");
         _;
     }
 
@@ -100,7 +100,7 @@ contract PhoebeOracle {
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "PhoebeOracle: zero address");
+        require(newOwner != address(0), "SaraOracle: zero address");
         owner = newOwner;
     }
 
@@ -124,7 +124,7 @@ contract PhoebeOracle {
         bool    unsafe,
         bytes calldata attestation
     ) external onlyAuthorized returns (bytes32 evaluationId) {
-        require(severity >= 1 && severity <= 5, "PhoebeOracle: severity must be 1-5");
+        require(severity >= 1 && severity <= 5, "SaraOracle: severity must be 1-5");
 
         evaluationId = keccak256(
             abi.encodePacked(promptHash, category, severity, unsafe, block.timestamp, totalResults)
@@ -158,8 +158,8 @@ contract PhoebeOracle {
         bytes32 enclaveHash,
         bytes calldata attestation
     ) external onlyAuthorized returns (bytes32 evaluationId) {
-        require(severity >= 1 && severity <= 5, "PhoebeOracle: severity must be 1-5");
-        require(enclaveHash != bytes32(0), "PhoebeOracle: empty enclave hash");
+        require(severity >= 1 && severity <= 5, "SaraOracle: severity must be 1-5");
+        require(enclaveHash != bytes32(0), "SaraOracle: empty enclave hash");
 
         evaluationId = keccak256(
             abi.encodePacked(promptHash, category, severity, unsafe, enclaveHash, block.timestamp, totalResults)
@@ -193,7 +193,7 @@ contract PhoebeOracle {
         external view returns (EvaluationResult memory)
     {
         EvaluationResult memory r = _results[evaluationId];
-        require(r.timestamp != 0, "PhoebeOracle: result not found");
+        require(r.timestamp != 0, "SaraOracle: result not found");
         return r;
     }
 

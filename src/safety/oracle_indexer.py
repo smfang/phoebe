@@ -1,7 +1,7 @@
 """
-Oracle event indexer — caches PhoebeOracle events into a queryable store.
+Oracle event indexer — caches SaraOracle events into a queryable store.
 
-Listens for ResultPublished events from the PhoebeOracle contract and
+Listens for ResultPublished events from the SaraOracle contract and
 maintains a local cache (in-memory + optional ClickHouse persistence).
 Exposes a REST-like interface for AI agents to query results without
 making direct RPC calls.
@@ -58,7 +58,7 @@ class IndexedResult:
 @dataclass
 class OracleIndexer:
     """
-    Indexes PhoebeOracle ResultPublished events.
+    Indexes SaraOracle ResultPublished events.
 
     Supports two modes:
     - Websocket: Real-time event subscription (preferred)

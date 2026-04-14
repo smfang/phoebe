@@ -1,7 +1,7 @@
 """
-Oracle tools — query the PhoebeOracle contract for evaluation results.
+Oracle tools — query the SaraOracle contract for evaluation results.
 
-Allows Phoebe (and other AI agents via the tool interface) to read
+Allows Sara (and other AI agents via the tool interface) to read
 on-chain safety evaluation results. This closes the multi-agent loop:
 one agent publishes results, others query them.
 """
@@ -15,7 +15,7 @@ from src.tools.registry import TOOL_REGISTRY, ToolContext, ToolParameter
 @TOOL_REGISTRY.tool(
     name="oracle.query",
     description=(
-        "Query the PhoebeOracle contract for a specific evaluation result "
+        "Query the SaraOracle contract for a specific evaluation result "
         "by its evaluation ID. Returns the full result including prompt hash, "
         "category, severity, unsafe flag, and attestation."
     ),
@@ -47,7 +47,7 @@ async def oracle_query(
     name="oracle.is_unsafe",
     description=(
         "Check if a prompt has been classified as unsafe for a given "
-        "safety category on the PhoebeOracle contract. Returns true/false. "
+        "safety category on the SaraOracle contract. Returns true/false. "
         "Use this for downstream safety gating decisions."
     ),
     parameters=[
@@ -94,7 +94,7 @@ async def oracle_is_unsafe(
 @TOOL_REGISTRY.tool(
     name="oracle.history",
     description=(
-        "Get all evaluation IDs for a prompt from the PhoebeOracle. "
+        "Get all evaluation IDs for a prompt from the SaraOracle. "
         "Returns a list of evaluation IDs across all categories. "
         "Useful for auditing all safety checks performed on a prompt."
     ),

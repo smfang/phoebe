@@ -1,5 +1,5 @@
 """
-DPO Trainer for Phoebe Safety RL.
+DPO Trainer for Sara Safety RL.
 
 Wraps TRL's ``DPOTrainer`` to fine-tune a model on preference pairs produced by
 :mod:`src.safety.safety_rl_pipeline`.  Loads a dataset from disk (or pulls

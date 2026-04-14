@@ -1,5 +1,5 @@
 """
-Phoebe domain modules — pluggable safety verification per problem domain.
+Sara domain modules — pluggable safety verification per problem domain.
 
 Each domain (DAO function calls, medical triage, code execution, etc.) packages
 its own validator/simulator/judge stages plus a risk-tier function and a
