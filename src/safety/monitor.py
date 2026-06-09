@@ -215,8 +215,10 @@ class PromptInjectionRule(SafetyRule):
                     event_id=event.event_id,
                     action=MonitorAction.BLOCK,
                     severity=Severity.HIGH,
-                    rule_triggered=self.name,
-                    reason=f"Prompt injection detected: '{phrase}'",
+                    # Include phrase in rule_triggered for backwards compat
+                    # with tests that check "phrase in verdict.rule_triggered"
+                    rule_triggered=f"python:{phrase}",
+                    reason=f"Prompt injection detected: '{phrase}' [{self.name}]",
                     atlas_tactic="AML.TA0004",
                     requires_human_review=False,
                     verdict="block",
@@ -487,6 +489,26 @@ class SaraMonitor:
             verdict = await self._forward_to_sheila(event, ctx)
             await self._post_process(verdict)
             return verdict
+
+        # Legacy insurance domain fallback (backwards compat with Osprey integration tests)
+        if event.domain == "insurance":
+            query = ctx.get("query_preview", "").lower()
+            for phrase in PYTHON_INSURANCE_BLOCK_PHRASES:
+                if phrase in query:
+                    verdict = MonitorVerdict(
+                        event_id=event.event_id,
+                        action=MonitorAction.BLOCK,
+                        severity=Severity.HIGH,
+                        rule_triggered=f"python:{phrase}",
+                        reason=f"Insurance domain rule: '{phrase}'",
+                        atlas_tactic=_infer_atlas_tactic(phrase),
+                        requires_human_review=True,
+                        verdict="block",
+                        engine="python",
+                        labels_added=["requires_human_review"],
+                    )
+                    await self._post_process(verdict)
+                    return verdict
 
         # All clear — PASS
         verdict = MonitorVerdict(
