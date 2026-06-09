@@ -17,9 +17,9 @@ class Config(BaseSettings):
     """default database for the clickhouse server"""
 
     # model config — used for Sara's own LLM reasoning + safety classifier
-    model_api: Literal["anthropic", "openai", "openapi", "kimi", "glm", "deepseek"] = "anthropic"
+    model_api: Literal["anthropic", "openai", "openapi", "kimi", "glm", "deepseek"] = "kimi"
     """the model api to use. must be one of `anthropic`, `openai`, `openapi`, `kimi`, `glm`, or `deepseek`"""
-    model_name: str = "claude-sonnet-4-5-20250929"
+    model_name: str = "kimi-k2"
     """the model to use with the given api"""
     model_api_key: str = ""
     """the model api key"""
@@ -106,7 +106,43 @@ class Config(BaseSettings):
     osprey_fallback_to_python: bool = True
     """use Python keyword rules if Osprey is unavailable"""
 
-    model_config = SettingsConfigDict(env_file=".env")
+    # Safety monitoring
+    safety_monitoring_enabled: bool = True
+    """enable the Sara safety monitor"""
+    safety_rules_version: str = "v0.1"
+    """version of the safety rule set"""
+    human_review_queue_size: int = 100
+    """maximum number of items in the human review queue"""
+    sheila_forward_threshold: float = 0.7
+    """forward to Sheila if routing_confidence < this threshold"""
+
+    # Sheila integration
+    sheila_a2a_url: str = ""
+    """set via SHEILA_A2A_URL env var — URL of Sheila TEE enclave (Phase 5)"""
+    sheila_enabled: bool = True
+    """enable Sheila integration"""
+
+    # Red teaming
+    red_team_enabled: bool = True
+    """enable automated red teaming"""
+    red_team_schedule_cron: str = "0 2 * * *"
+    """cron schedule for automated red team sessions (default: 2am daily)"""
+    red_team_signing_secret: str = ""
+    """set via SARA_RED_TEAM_SECRET env var — HMAC signing secret for probe IDs"""
+
+    # DPO training
+    dpo_data_dir: str = "data/dpo"
+    """directory for DPO training data"""
+    dpo_model_output_dir: str = "models/sheila-judge-dpo"
+    """output directory for DPO-trained Sheila judge model"""
+    dpo_base_model: str = "Qwen/Qwen2.5-7B-Instruct"
+    """base model for DPO fine-tuning (Sheila judge)"""
+
+    # MITRE ATLAS
+    atlas_taxonomy_version: str = "v2025-10"
+    """version of the MITRE ATLAS taxonomy in use"""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 CONFIG = Config()
