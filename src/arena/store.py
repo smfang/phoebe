@@ -8,6 +8,7 @@ and the leaderboard — is persisted to ClickHouse tables.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -73,7 +74,8 @@ ARENA_DDL = [
         category_coverage String,
         duplicate_penalty Float64,
         evaluated_at     Float64,
-        tx_hash          String DEFAULT ''
+        tx_hash          String DEFAULT '',
+        prev_hash        String DEFAULT ''
     ) ENGINE = ReplacingMergeTree()
       ORDER BY submission_id
     """,
@@ -147,6 +149,29 @@ ARENA_DDL = [
         updated_at        DateTime DEFAULT now()
     ) ENGINE = ReplacingMergeTree(updated_at)
       ORDER BY (rule_name, label, window_start)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS arena.attestations (
+        attestation_id    String,
+        commitment_id     String,
+        bounty_id         String,
+        sheila_decision   String,
+        sheila_category   String DEFAULT '',
+        confidence        Float32,
+        reward_alpha      Float32,
+        reward_beta       Float32,
+        reward_gamma      Float32,
+        reward_delta      Float32,
+        final_score       Float32,
+        timestamp_ms      Int64,
+        public_key_id     String,
+        signature         String DEFAULT '',
+        prev_hash         String DEFAULT '',
+        commitment        String DEFAULT '',
+        created_at        DateTime DEFAULT now()
+    ) ENGINE = MergeTree()
+      ORDER BY (timestamp_ms, attestation_id)
+      PARTITION BY toYYYYMM(created_at)
     """,
 ]
 
@@ -252,20 +277,23 @@ class ArenaStore:
     # Evaluations
     # ------------------------------------------------------------------
 
-    async def save_evaluation(self, ev: EvaluationResult, tx_hash: str = "") -> None:
+    async def save_evaluation(self, ev: EvaluationResult, tx_hash: str = "", prev_hash: str = "") -> None:
         evals_json = json.dumps([e.model_dump() for e in ev.prompt_evaluations])
         cov_json = json.dumps(ev.category_coverage)
+        # CAT-05 GDPR: raw inputs never stored, only SHA3-256 hash
+        evals_hash = hashlib.sha3_256(evals_json.encode()).hexdigest()
         sql = f"""
             INSERT INTO arena.evaluations VALUES (
                 '{_esc(ev.submission_id)}',
                 '{_esc(ev.bounty_id)}',
-                '{_esc(evals_json)}',
+                '{_esc(evals_hash)}',
                 {ev.total_score},
                 {ev.payout_usdc},
                 '{_esc(cov_json)}',
                 {ev.duplicate_penalty},
                 {ev.evaluated_at},
-                '{_esc(tx_hash)}'
+                '{_esc(tx_hash)}',
+                '{_esc(prev_hash)}'
             )
         """
         await self._ch.query(sql)
@@ -586,6 +614,159 @@ class ArenaStore:
             return merged
         except Exception:
             return {}
+
+    # ------------------------------------------------------------------
+    # Admin helpers
+    # ------------------------------------------------------------------
+
+    async def list_payments(self, limit: int = 100) -> list[dict[str, Any]]:
+        sql = f"""
+            SELECT tx_hash, timestamp, from_wallet, to_wallet,
+                   amount_usdc, payment_type, submission_id, bounty_id
+            FROM arena.payment_log
+            ORDER BY timestamp DESC
+            LIMIT {limit}
+        """
+        try:
+            resp = await self._ch.query(sql)
+            return [
+                {
+                    "tx_hash": str(r[0]),
+                    "timestamp": float(r[1]),
+                    "from_wallet": str(r[2]),
+                    "to_wallet": str(r[3]),
+                    "amount_usdc": round(float(r[4]), 6),
+                    "payment_type": str(r[5]),
+                    "submission_id": str(r[6]),
+                    "bounty_id": str(r[7]),
+                }
+                for r in resp.result_rows  # type: ignore
+            ]
+        except Exception:
+            logger.warning("list_payments query failed", exc_info=True)
+            return []
+
+    async def list_all_bounties(self) -> list[Bounty]:
+        sql = """
+            SELECT * FROM arena.bounties FINAL
+            ORDER BY created_at DESC
+            LIMIT 200
+        """
+        try:
+            resp = await self._ch.query(sql)
+            return [_row_to_bounty(r) for r in resp.result_rows]  # type: ignore
+        except Exception:
+            logger.warning("list_all_bounties query failed", exc_info=True)
+            return []
+
+    async def list_stalled_submissions(self, older_than_seconds: int = 60) -> list[dict[str, Any]]:
+        cutoff = time.time() - older_than_seconds
+        sql = f"""
+            SELECT submission_id, bounty_id, teamer_wallet, submitted_at, status
+            FROM arena.submissions FINAL
+            WHERE status IN ('queued', 'evaluating')
+              AND submitted_at < {cutoff}
+            ORDER BY submitted_at ASC
+            LIMIT 50
+        """
+        try:
+            resp = await self._ch.query(sql)
+            import time as _time
+            now = _time.time()
+            return [
+                {
+                    "submission_id": str(r[0]),
+                    "bounty_id": str(r[1]),
+                    "researcher_wallet": str(r[2]),
+                    "submitted_at": float(r[3]),
+                    "status": str(r[4]),
+                    "age_seconds": int(now - float(r[3])),
+                }
+                for r in resp.result_rows  # type: ignore
+            ]
+        except Exception:
+            logger.warning("list_stalled_submissions query failed", exc_info=True)
+            return []
+
+    async def pause_bounty(self, bounty_id: str) -> bool:
+        bounty = await self.get_bounty(bounty_id)
+        if not bounty:
+            return False
+        bounty.status = BountyStatus.PAUSED
+        await self.save_bounty(bounty)
+        return True
+
+    async def resume_bounty(self, bounty_id: str) -> bool:
+        bounty = await self.get_bounty(bounty_id)
+        if not bounty:
+            return False
+        if bounty.remaining_usdc > 0:
+            bounty.status = BountyStatus.ACTIVE
+        else:
+            bounty.status = BountyStatus.EXHAUSTED
+        await self.save_bounty(bounty)
+        return True
+
+    async def topup_bounty(self, bounty_id: str, amount_usdc: float) -> bool:
+        bounty = await self.get_bounty(bounty_id)
+        if not bounty:
+            return False
+        bounty.pool_usdc += amount_usdc
+        bounty.remaining_usdc += amount_usdc
+        if bounty.status in (BountyStatus.EXHAUSTED, BountyStatus.PAUSED):
+            bounty.status = BountyStatus.ACTIVE
+        await self.save_bounty(bounty)
+        return True
+
+    async def requeue_submission(self, submission_id: str) -> bool:
+        sub = await self.get_submission(submission_id)
+        if not sub:
+            return False
+        sub.status = SubmissionStatus.QUEUED
+        await self.save_submission(sub)
+        return True
+
+    # ------------------------------------------------------------------
+    # ZK Audit Trail — L2 attestations
+    # ------------------------------------------------------------------
+
+    async def insert_attestation(self, attestation: Any, commitment: Any) -> None:
+        """
+        Persist an EvaluationAttestation (L2) linked to a CommitmentRecord (L1).
+        Both records are stored together for the full ZK audit trail.
+        """
+        try:
+            sql = f"""
+                INSERT INTO arena.attestations (
+                    attestation_id, commitment_id, bounty_id,
+                    sheila_decision, sheila_category, confidence,
+                    reward_alpha, reward_beta, reward_gamma, reward_delta,
+                    final_score, timestamp_ms, public_key_id, signature,
+                    prev_hash, commitment
+                ) VALUES (
+                    '{_esc(attestation.attestation_id)}',
+                    '{_esc(attestation.commitment_id)}',
+                    '{_esc(attestation.bounty_id)}',
+                    '{_esc(attestation.sheila_decision)}',
+                    '{_esc(attestation.sheila_category or "")}',
+                    {attestation.confidence},
+                    {attestation.reward_alpha},
+                    {attestation.reward_beta},
+                    {attestation.reward_gamma},
+                    {attestation.reward_delta},
+                    {attestation.final_score},
+                    {attestation.timestamp_ms},
+                    '{_esc(attestation.public_key_id)}',
+                    '{_esc(attestation.signature or "")}',
+                    '{_esc(commitment.prev_hash or "")}',
+                    '{_esc(commitment.commitment)}'
+                )
+            """
+            await self._ch.query(sql)
+        except Exception:
+            logger.warning(
+                "insert_attestation failed for %s", attestation.attestation_id, exc_info=True
+            )
 
 
 # ---------------------------------------------------------------------------
